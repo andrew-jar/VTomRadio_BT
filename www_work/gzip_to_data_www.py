@@ -23,6 +23,11 @@ SKIP_EXTENSIONS = {
     ".eot",
 }
 
+COMPRESSED_ONLY_FILENAMES = {
+    "bt.html",
+    "player.html",
+}
+
 
 def should_compress(path: Path, script_name: str) -> bool:
     if not path.is_file():
@@ -36,7 +41,14 @@ def should_compress(path: Path, script_name: str) -> bool:
     return True
 
 
-def compress_and_move(src_file: Path, dst_dir: Path) -> Path:
+def sync_plain_and_compressed(src_file: Path, dst_dir: Path) -> tuple[Path, Path]:
+    dst_plain = dst_dir / src_file.name
+    if src_file.name in COMPRESSED_ONLY_FILENAMES:
+        if dst_plain.exists():
+            dst_plain.unlink()
+    else:
+        shutil.copy2(src_file, dst_plain)
+
     gz_local = src_file.with_suffix(src_file.suffix + ".gz")
     dst_file = dst_dir / gz_local.name
 
@@ -47,7 +59,7 @@ def compress_and_move(src_file: Path, dst_dir: Path) -> Path:
         dst_file.unlink()
 
     shutil.move(str(gz_local), str(dst_file))
-    return dst_file
+    return dst_plain, dst_file
 
 
 def main() -> int:
@@ -67,11 +79,14 @@ def main() -> int:
 
     moved = 0
     for src_file in candidates:
-        dst_file = compress_and_move(src_file, dst_dir)
-        print(f"OK  {src_file.name} -> {dst_file.name}")
+        dst_plain, dst_file = sync_plain_and_compressed(src_file, dst_dir)
+        if src_file.name in COMPRESSED_ONLY_FILENAMES:
+            print(f"OK  {src_file.name} -> {dst_file.name} (gz only)")
+        else:
+            print(f"OK  {src_file.name} -> {dst_plain.name}, {dst_file.name}")
         moved += 1
 
-    print(f"\nDone. Moved {moved} compressed files to {dst_dir}")
+    print(f"\nDone. Synced {moved} files to {dst_dir} (plain + gzip)")
     return 0
 
 

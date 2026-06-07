@@ -13,7 +13,19 @@
 #include "../pluginsManager/pluginsManager.h"
 
 #ifndef WIFI_ATTEMPTS
-    #define WIFI_ATTEMPTS 16
+    #define WIFI_ATTEMPTS 30
+#endif
+
+#ifndef WIFI_BOOT_RETRIES
+    #define WIFI_BOOT_RETRIES 6
+#endif
+
+#ifndef WIFI_BOOT_RETRY_DELAY_MS
+    #define WIFI_BOOT_RETRY_DELAY_MS 1200
+#endif
+
+#ifndef WIFI_RECONNECT_MIN_INTERVAL_MS
+    #define WIFI_RECONNECT_MIN_INTERVAL_MS 1200
 #endif
 
 #ifndef SEARCH_WIFI_CORE_ID
@@ -21,6 +33,7 @@
 #endif
 MyNetwork network;
 static portMUX_TYPE networkTimeMux = portMUX_INITIALIZER_UNLOCKED;
+static uint32_t reconnectNotBeforeMs = 0;
 
 void network_get_timeinfo_snapshot(struct tm* out) {
     if (!out) return;
@@ -45,7 +58,10 @@ void MyNetwork::WiFiReconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
         display.putRequest(NEWIP, 0);
     } else {
         display.putRequest(NEWMODE, PLAYER);
-        if (network.lostPlaying) player.sendCommand({PR_PLAY, config.lastStation()});
+        if (network.lostPlaying) {
+            player.sendCommand({PR_PLAY, config.lastStation()});
+            network.lostPlaying = false;
+        }
     }
 #ifdef MQTT_ROOT_TOPIC
     connectToMqtt();
@@ -53,8 +69,10 @@ void MyNetwork::WiFiReconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 void MyNetwork::WiFiLostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
+    uint32_t now = millis();
     if (!network.beginReconnect) {
-        Serial.printf("Lost connection, reconnecting to %s...\n", config.ssids[config.store.lastSSID - 1].ssid);
+        const uint8_t ls = (config.store.lastSSID == 0 || config.store.lastSSID > config.ssidsCount) ? 0 : config.store.lastSSID - 1;
+        Serial.printf("Lost connection (reason=%u), reconnecting to %s...\n", info.wifi_sta_disconnected.reason, config.ssids[ls].ssid);
         if (config.getMode() == PM_SDCARD) {
             network.status = SDREADY;
             display.putRequest(NEWIP, 0);
@@ -67,8 +85,14 @@ void MyNetwork::WiFiLostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
             display.putRequest(NEWMODE, LOST);
         }
     }
+    if (network.beginReconnect && static_cast<int32_t>(now - reconnectNotBeforeMs) < 0) {
+        return;
+    }
     network.beginReconnect = true;
-    WiFi.reconnect();
+    reconnectNotBeforeMs = now + WIFI_RECONNECT_MIN_INTERVAL_MS;
+    if (WiFi.status() != WL_CONNECTED) {
+        WiFi.reconnect();
+    }
 }
 
 bool MyNetwork::wifiBegin(bool silent) {
@@ -80,10 +104,15 @@ bool MyNetwork::wifiBegin(bool silent) {
     delay(1000); 
     WiFi.mode(WIFI_STA);
     delay(500);
+    WiFi.setSleep(false);
+    WiFi.setAutoReconnect(true);
     uint8_t ls = (config.store.lastSSID == 0 || config.store.lastSSID > config.ssidsCount) ? 0 : config.store.lastSSID - 1;
     uint8_t startedls = ls;
     uint8_t errcnt = 0;
+    uint8_t bootRetry = 0;
+    bool    wrappedSsids = false;
     while (true) {
+        wrappedSsids = false;
         if (!silent) {
             Serial.printf("##[BOOT]#\tAttempt to connect to %s\n", config.ssids[ls].ssid);
             Serial.print("##[BOOT]#\t");
@@ -122,20 +151,28 @@ bool MyNetwork::wifiBegin(bool silent) {
             if (errcnt > WIFI_ATTEMPTS) {
                 errcnt = 0;
                 ls++;
-                if (ls > config.ssidsCount - 1) ls = 0;
+                if (ls > config.ssidsCount - 1) {
+                    ls = 0;
+                    wrappedSsids = true;
+                }
                 if (!silent) Serial.println();
                 WiFi.mode(WIFI_OFF);
                 break;
             }
         }
-        if (WiFi.status() != WL_CONNECTED && ls == startedls) {
-            return false;
-            break;
-        }
         if (WiFi.status() == WL_CONNECTED) {
             config.setLastSSID(ls + 1);
             return true;
-            break;
+        }
+        if (wrappedSsids && ls == startedls) {
+            bootRetry++;
+            if (!silent) {
+                Serial.printf("##[BOOT]#\tWiFi retry cycle %u/%u\n", bootRetry, WIFI_BOOT_RETRIES);
+            }
+            if (bootRetry >= WIFI_BOOT_RETRIES) {
+                return false;
+            }
+            delay(WIFI_BOOT_RETRY_DELAY_MS);
         }
     }
     return false;

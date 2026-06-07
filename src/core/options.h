@@ -2,7 +2,7 @@
 #define options_h
 #pragma once
 
-#define FW_VERSION "0.0.8"
+#define FW_VERSION "0.1.0"
 
 #ifndef THEME_CSV_VERSION
 #    define THEME_CSV_VERSION "0.0.1"
@@ -112,6 +112,30 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #if NEXTION_RX!=255 && NEXTION_TX!=255
   #define USE_NEXTION
 #endif
+
+/*        KCX BT Emitter (direct UART) */
+#ifndef KCX_BT_RX
+  #define KCX_BT_RX -1
+#endif
+#ifndef KCX_BT_TX
+  #define KCX_BT_TX -1
+#endif
+#ifndef KCX_BT_LINK
+  #define KCX_BT_LINK -1
+#endif
+#ifndef KCX_BT_CONNECT
+  #define KCX_BT_CONNECT -1
+#endif
+#ifndef KCX_BT_MODE
+  #define KCX_BT_MODE -1
+#endif
+#ifndef KCX_BT_BAUD
+  #define KCX_BT_BAUD 115200
+#endif
+#ifndef KCX_BT_STARTUP_VOL
+  #define KCX_BT_STARTUP_VOL -1
+#endif
+
 /*        OLED I2C DISPLAY        */
 #ifndef I2C_SDA
   #define I2C_SDA 21
@@ -349,13 +373,12 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #ifndef RSSI_STEPS
   #define RSSI_STEPS       -50,-60,-70,-80
 #endif
-#define VT_DIGI 1
-#define VT_DIGI_OLD 2
+
+/*------------------ CLOCK FONTS -----------------*/
 #define CLOCKFONT_STYLE_DIGI7 0
 #define CLOCKFONT_STYLE_CALIBRI 1
-#ifndef CLOCKFONT
-  #define CLOCKFONT    VT_DIGI     
-#endif
+#define CLOCKFONT_STYLE_ANDROIDCLOCK 2
+
 #ifndef CLOCKFONT_STYLE
   #define CLOCKFONT_STYLE CLOCKFONT_STYLE_DIGI7
 #endif
@@ -373,6 +396,7 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #    define CLOCK_AM_PM_STYLE_DEFAULT false
 #  endif
 #endif
+
 #ifndef MAX_AUDIO_SOCKET_TIMEOUT
   #define MAX_AUDIO_SOCKET_TIMEOUT   false     // max audio socket timeout?
 #endif
@@ -390,7 +414,7 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
   #define DTYPE INITR_BLACKTAB
 #endif
 
-/*        IR                      */
+/*---------------- IR -----------------*/
 #ifndef IR_PIN
   #define IR_PIN                255
 #endif

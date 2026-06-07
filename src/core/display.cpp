@@ -121,6 +121,7 @@ Display::~Display() {
     delete _meta;
     delete _title1;
     delete _title2;
+    delete _btbox;
     delete _plcurrent;
 }
 
@@ -224,10 +225,18 @@ void Display::_buildPager() {
 #    ifndef HIDE_RSSI
     _wifiwidget = new WifiWidget(&dsp, &wifiConf);
     _rssibox = new textBoxWidget(rssiBoxConf, 16, false, config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border);
-    if (config.store.rssiAsText) {
+    if (config.store.rssiAsText && !config.store.vuBidirectional) {
         _wifiwidget->lock();
     } else {
         _rssibox->lock();
+    }
+#    endif
+
+#    if KCX_BT_LINK >= 0
+    _btbox = new textBoxWidget(btBoxConf, 8, false, config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border);
+    if (_btbox) {
+        _btbox->setText("BT");
+        _btbox->lock(true);
     }
 #    endif
 
@@ -249,6 +258,10 @@ void Display::_buildPager() {
     pages[PG_PLAYER]->addWidget(_title1);
     if (_title2) { pages[PG_PLAYER]->addWidget(_title2); }
     if (_weather) { pages[PG_PLAYER]->addWidget(_weather); }
+
+#    if KCX_BT_LINK >= 0
+    if (_btbox) { pages[PG_PLAYER]->addWidget(_btbox); }
+#    endif
 
     _bitratewidget = new BitrateWidget(bitrateConf, config.theme.bitrate, config.theme.background);
     _bitratewidget->setActive(true);
@@ -334,6 +347,7 @@ void Display::_start() {
 #    ifndef HIDE_RSSI
     _applyRssiMode();
 #    endif
+    _setBtConnected();
     if (_chbox) {
         _chbox->setText(config.lastStation(), "Ch:%d."); // Beállítja a csatorna számát a widgetnek.
     }
@@ -369,28 +383,49 @@ void Display::_refreshThemeColors() {
     if (_ipbox) { _ipbox->setColors(config.theme.ip, config.theme.ip_bg, config.theme.ip_border); }
     if (_chbox) { _chbox->setColors(config.theme.ch, config.theme.ch_bg, config.theme.ch_border); }
     if (_rssibox) { _rssibox->setColors(config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border); }
+    if (_btbox) { _btbox->setColors(config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border); }
     if (_heapbar) { _heapbar->setColors(config.theme.buffer, config.theme.background); }
+}
+
+void Display::_setBtConnected() {
+#    if KCX_BT_LINK >= 0
+    const bool connected = digitalRead(KCX_BT_LINK);
+    const bool showBtBox = connected;
+
+    if (_btbox) {
+        if (showBtBox) {
+            _btbox->setText("BT");
+            if (_btbox->locked()) { _btbox->lock(false); }
+        } else {
+            if (!_btbox->locked()) { _btbox->lock(true); }
+        }
+    }
+#    endif
 }
 
 void Display::_applyRssiMode() {
 #    ifndef HIDE_RSSI
     const int currentRssi = WiFi.RSSI();
+    const bool rssiTextMode = config.store.rssiAsText && !config.store.vuBidirectional;
 
-    if (config.store.rssiAsText) {
-        if (_wifiwidget) { _wifiwidget->lock(true); }
+    if (rssiTextMode) {
+        if (_wifiwidget && !_wifiwidget->locked()) { _wifiwidget->lock(true); }
         if (_rssibox) {
-            _rssibox->lock(false);
+            if (_rssibox->locked()) { _rssibox->lock(false); }
             char buf[16];
             snprintf(buf, sizeof(buf), "%d dBm", currentRssi);
             _rssibox->setText(buf);
         }
     } else {
-        if (_rssibox) { _rssibox->lock(true); }
+        if (_rssibox && !_rssibox->locked()) { _rssibox->lock(true); }
         if (_wifiwidget) {
             _wifiwidget->setRSSI(currentRssi);
-            _wifiwidget->lock(false);
+            if (_wifiwidget->locked()) { _wifiwidget->lock(false); }
         }
     }
+
+    // BT is drawn after RSSI/WiFi lock transitions so rssiBox clear does not erase BT icon.
+    _setBtConnected();
 #    endif
 }
 
@@ -526,6 +561,7 @@ void Display::applyVuModeChange() {
     if (!_vuwidget) { return; }
     _vuwidget->switchMode(config.store.vuBidirectional);
     _layoutChange(player.isRunning());
+    _applyRssiMode();
 }
 
 void Display::invalidateThemeWidgets() {
@@ -610,6 +646,7 @@ void Display::loop() {
                         _vuwidget->lock(!config.store.vumeter);
                         _layoutChange(player.isRunning());
                     }
+                    _applyRssiMode();
                     break;
 
                 case SWITCHVUMODE: applyVuModeChange(); break;
@@ -635,6 +672,10 @@ void Display::loop() {
 #    endif
                     break;
 
+                case INVALIDATETHEMEWIDGETS:
+                    invalidateThemeWidgets();
+                    break;
+
                 case BOOTSTRING:
                     if (_bootstring) { _bootstring->setText(config.ssids[request.payload].ssid, LANG::bootstrFmt); }
                     /*#ifdef USE_NEXTION
@@ -653,6 +694,7 @@ void Display::loop() {
                     break;
 
                 case DSPRSSI:
+                    _setBtConnected();
                     _setRSSI(request.payload);
                     if (_heapbar && config.store.audioinfo) { _heapbar->setValue(player.isRunning() ? player.inBufferFilled() : 0); }
                     break;
@@ -680,7 +722,7 @@ void Display::loop() {
 } // loop vége
 
 void Display::_setRSSI(int rssi) {
-    if (config.store.rssiAsText && _rssibox) {
+    if (config.store.rssiAsText && !config.store.vuBidirectional && _rssibox) {
         _rssibox->setText(rssi, "%ddBm");
         return;
     }

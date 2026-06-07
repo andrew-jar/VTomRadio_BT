@@ -199,7 +199,7 @@ void Config::init() {
         saveValue(&store.vuPeak, true, false);
         saveValue(&store.vuPeakInitMarker, static_cast<uint8_t>(0xA5));
     }
-    if (store.clockFontStyle > CLOCKFONT_STYLE_CALIBRI) { saveValue(&store.clockFontStyle, static_cast<uint8_t>(CLOCKFONT_STYLE)); }
+    if (store.clockFontStyle > CLOCKFONT_STYLE_ANDROIDCLOCK) { saveValue(&store.clockFontStyle, static_cast<uint8_t>(CLOCKFONT_STYLE)); }
     if (store.clockFontStyle != CLOCKFONT_STYLE_DIGI7 && store.clockFontMono) { saveValue(&store.clockFontMono, false); }
     if (store.dateFormat > 4) { saveValue(&store.dateFormat, static_cast<uint8_t>(0)); }
     BOOTLOG("CONFIG_VERSION\t%d", store.version);
@@ -272,7 +272,6 @@ void Config::_setupVersion() {
         case 2: saveValue(&store.rssiAsText, false); break;
         case 3: break;
         case 4: saveValue(&store.serialLittlefsEnabled, true); break;
-        case 5: saveValue(&store.serialLittlefsEnabled, true); break;
     }
     currentVersion++;
     saveValue(&store.version, currentVersion);
@@ -401,7 +400,7 @@ bool Config::prepareForPlaying(uint16_t stationId) {
     screensaverPlayingTicks = SCREENSAVERSTARTUPDELAY;
     if (getMode() != PM_SDCARD) { display.putRequest(PSTOP); }
     if (!loadStation(stationId)) { return false; }
-    setTitle(LANG::const_PlConnect);
+    setTitle(LANG::const_PlConnect); // inen van a connect felirat a kijelzőn
     station.bitrate = 0;
     setBitrateFormat(BF_UNKNOWN);
     display.putRequest(DBITRATE);
@@ -545,6 +544,9 @@ void Config::_setDefaultTheme() {
     theme.rssi = color565(COLOR_RSSI);
     theme.rssi_bg = color565(COLOR_RSSI_BG);
     theme.rssi_border = color565(COLOR_RSSI_BORDER);
+    theme.bt = color565(COLOR_BT);
+    theme.bt_bg = color565(COLOR_BT_BG);
+    theme.bt_border = color565(COLOR_BT_BORDER);
     /*----- BITRATE WIDGET -----*/
     theme.bitrate = color565(COLOR_BITRATE);
     /*----- VU WIDGET -----*/
@@ -659,6 +661,10 @@ bool Config::setThemeColorByName(const char* name, uint8_t r, uint8_t g, uint8_t
     SET_THEME_COLOR("rssi", rssi);
     SET_THEME_COLOR("rssi_bg", rssi_bg);
     SET_THEME_COLOR("rssi_border", rssi_border);
+    SET_THEME_COLOR("bt", bt);
+    SET_THEME_COLOR("bt_text", bt);
+    SET_THEME_COLOR("bt_bg", bt_bg);
+    SET_THEME_COLOR("bt_border", bt_border);
     SET_THEME_COLOR("buffer", buffer);
     SET_THEME_COLOR("pl_current", plcurrent);
     SET_THEME_COLOR("plcurrent", plcurrent);
@@ -770,6 +776,10 @@ bool Config::getThemeColorByName(const char* name, uint16_t& color) const {
     GET_THEME_COLOR("rssi", rssi);
     GET_THEME_COLOR("rssi_bg", rssi_bg);
     GET_THEME_COLOR("rssi_border", rssi_border);
+    GET_THEME_COLOR("bt", bt);
+    GET_THEME_COLOR("bt_text", bt);
+    GET_THEME_COLOR("bt_bg", bt_bg);
+    GET_THEME_COLOR("bt_border", bt_border);
     GET_THEME_COLOR("buffer", buffer);
     GET_THEME_COLOR("pl_current", plcurrent);
     GET_THEME_COLOR("plcurrent", plcurrent);
@@ -934,6 +944,9 @@ bool Config::saveThemeToFile() {
     writeColor("rssi", theme.rssi);
     writeColor("rssi_bg", theme.rssi_bg);
     writeColor("rssi_border", theme.rssi_border);
+    writeColor("bt", theme.bt);
+    writeColor("bt_bg", theme.bt_bg);
+    writeColor("bt_border", theme.bt_border);
     writeColor("buffer", theme.buffer);
     writeColor("pl_current", theme.plcurrent);
     writeColor("pl_current_bg", theme.plcurrentbg);
@@ -1018,6 +1031,9 @@ String Config::themeToJson() const {
     appendColor("rssi", theme.rssi);
     appendColor("rssi_bg", theme.rssi_bg);
     appendColor("rssi_border", theme.rssi_border);
+    appendColor("bt", theme.bt);
+    appendColor("bt_bg", theme.bt_bg);
+    appendColor("bt_border", theme.bt_border);
     appendColor("buffer", theme.buffer);
     appendColor("pl_current", theme.plcurrent);
     appendColor("pl_current_bg", theme.plcurrentbg);
@@ -1127,7 +1143,6 @@ void Config::resetSystem(const char* val, uint8_t clientId) {
         saveValue(&store.vuPeakInitMarker, static_cast<uint8_t>(0xA5), false);
         saveValue(&store.vuBidirectional, false, false);
         saveValue(&store.softapdelay, (uint8_t)0, false);
-        // saveValue(&store.abuff, (uint16_t)(VS1053_CS == 255 ? 7 : 10), false);
         saveValue(&store.watchdog, true);
         saveValue(&store.stallWatchdog, true, false);
         saveValue(&store.serialLittlefsEnabled, true, false);
@@ -1528,7 +1543,7 @@ bool Config::loadStation(uint16_t ls) {
     if (cs == 0) {
         memset(station.url, 0, BUFLEN);
         memset(station.name, 0, BUFLEN);
-        strncpy(station.name, "yoRadio", BUFLEN);
+        strncpy(station.name, "VTom Radio", BUFLEN);
         station.ovol = 0;
         return false;
     }
@@ -1887,6 +1902,7 @@ void Config::bootInfo() {
     BOOTLOG("fadeStartDelay: %4s", fmtThousands(store.fadeStartDelay));
     BOOTLOG("fadeTarget    : %4s", fmtThousands(store.fadeTarget));
     BOOTLOG("fadeStep      : %4s", fmtThousands(store.fadeStep));
+    BOOTLOG("Serial LittleFS : %s", store.serialLittlefsEnabled ? "true" : "false");
     BOOTLOG("------------------------------------------------");
     BOOTLOG("----------------- HEAP AND PSRAM ---------------");
     BOOTLOG("Total heap : %10s byte", fmtThousands(ESP.getHeapSize()));

@@ -70,6 +70,11 @@
 #define COLOR_RSSI_BG             0,   0,   0
 #define COLOR_RSSI_BORDER       102, 178, 255
 
+/*----- BT ICON -----*/
+#define COLOR_BT                102, 178, 255
+#define COLOR_BT_BG               0,   0,   0
+#define COLOR_BT_BORDER         102, 178, 255
+
 /*----- BUFFER -----*/
 #define COLOR_BUFFER            102, 178, 255
 

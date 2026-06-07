@@ -279,7 +279,8 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
         return true;
     }
     if (strEquals(command, "seriallittlefs")) {
-        config.saveValue(&config.store.serialLittlefsEnabled, static_cast<bool>(atoi(value)));
+        config.saveValue(&config.store.serialLittlefsEnabled, static_cast<bool>(atoi(value)),true, false);
+        delay(100);
         netserver.requestOnChange(GETSYSTEM, cid);
         return true;
     }
@@ -346,7 +347,7 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
     }
     if (strEquals(command, "clockfont")) {
         uint8_t style = static_cast<uint8_t>(atoi(value));
-        if (style > CLOCKFONT_STYLE_CALIBRI) { style = CLOCKFONT_STYLE_DIGI7; }
+        if (style > CLOCKFONT_STYLE_ANDROIDCLOCK) { style = CLOCKFONT_STYLE_DIGI7; }
         config.saveValue(&config.store.clockFontStyle, style);
         if (style != CLOCKFONT_STYLE_DIGI7 && config.store.clockFontMono) {
             config.saveValue(&config.store.clockFontMono, false);
@@ -419,6 +420,8 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
     if (strEquals(command, "rssiastext")) {
         config.saveValue(&config.store.rssiAsText, static_cast<bool>(atoi(value)));
         display.putRequest(SHOWRSSIMODE);
+        // Force immediate bottom-bar redraw so BT icon/box switches without waiting for periodic RSSI tick.
+        display.putRequest(DSPRSSI, WiFi.RSSI());
         return true;
     }
     if (strEquals(command, "lat")) {

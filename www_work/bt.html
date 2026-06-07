@@ -1,0 +1,1114 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111820">
+  <title>VTom Radio - KCX BT</title>
+  <style>
+    :root {
+      --bg: #010101;
+      --panel: #111111;
+      --panel2: #272727;
+      --line: rgba(85,85,85,.9);
+      --text: #cccccc;
+      --muted: #a9a9a9;
+      --ok: #56b498;
+      --warn: #d9a25e;
+      --bad: #ef8f8f;
+      --accent: #4b95d6;
+      --mono: Consolas, Menlo, Monaco, monospace;
+      --sans: "Segoe UI", Tahoma, sans-serif;
+      --r: 12px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: var(--sans);
+      background: linear-gradient(180deg, #101010 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+    .wrap {
+      width: min(1024px, calc(100% - 20px));
+      margin: 0 auto;
+      padding: 14px 0 24px;
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 5px 0 12px;
+      font-size: clamp(24px, 2.2vw, 26px);
+      line-height: 48px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: var(--accent);
+      text-align: center;
+    }
+    .head-copy {
+      flex: 1;
+      text-align: center;
+    }
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .badge {
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      white-space: nowrap;
+      background: rgba(75,149,214,.14);
+      color: var(--accent);
+    }
+    .head-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbtn {
+      border: 1px solid rgba(255,255,255,.16);
+      background: #2b2b2b;
+      color: var(--text);
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      cursor: pointer;
+    }
+    .topbtn:hover {
+      border-color: rgba(75,149,214,.75);
+      background: #343434;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: var(--r);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .title {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+    }
+    .grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .kv {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #101922;
+      padding: 10px;
+      min-height: 62px;
+    }
+    .kv .k {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      letter-spacing: .04em;
+    }
+    .kv .v {
+      font-family: var(--mono);
+      font-size: 15px;
+      word-break: break-word;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    button, input { font: inherit; }
+    .btn {
+      border: 1px solid rgba(255,255,255,.16);
+      background: #2b2b2b;
+      color: var(--text);
+      border-radius: 9px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: rgba(75,149,214,.75); }
+    .btn.ok { background: #2f6155; border-color: rgba(86,180,152,.5); }
+    .btn.warn { background: #5a4228; border-color: rgba(217,162,94,.5); }
+    .btn.bad { background: #613535; border-color: rgba(239,143,143,.5); }
+    .split {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+    }
+    .input {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #101922;
+      padding: 10px;
+    }
+    .input label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: .04em;
+    }
+    input[type="text"], input[type="range"] {
+      width: 100%;
+    }
+    input[type="text"] {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0c141c;
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+    }
+    .tiny { color: var(--muted); font-size: 12px; }
+    .list {
+      display: grid;
+      gap: 7px;
+      max-height: 250px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #101922;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .item:hover { border-color: rgba(75,149,214,.7); }
+    .item.selected { border-color: rgba(75,149,214,.9); }
+    .item strong { display: block; font-size: 13px; }
+    .item small { color: var(--muted); font-family: var(--mono); }
+    .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .item-btn {
+      border: 1px solid rgba(86,180,152,.5);
+      background: #2f6155;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      cursor: pointer;
+    }
+    .item-btn:hover { border-color: rgba(86,180,152,.75); }
+    .log {
+      height: 230px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0c141c;
+      padding: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .line { margin: 0 0 7px; }
+    .line.out { color: #9dd6ff; }
+    .line.in { color: #bbffd9; }
+    .line.warn { color: var(--warn); }
+    .line.err { color: var(--bad); }
+    .foot {
+      margin-top: 8px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .split { grid-template-columns: 1fr; }
+      .head { flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 520px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="head-copy">
+        <h1>Bluetooth - VTom Radio</h1>
+        <p class="sub">Panel for commands: AT+, AT+GMR?, AT+BT_MODE?, AT+VOL?, AT+VMLINK?, AT+ADDLINKADD, AT+DELVMLINK.</p>
+      </div>
+      <div class="head-actions">
+        <button class="topbtn" type="button" onclick="goHome()">HOME</button>
+        <div class="badge" id="wsState">WS CONNECTING</div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2 class="title">Status</h2>
+      <div class="grid">
+        <div class="kv"><div class="k">Firmware</div><div class="v" id="fw">-</div></div>
+        <div class="kv"><div class="k">Mode</div><div class="v" id="mode">-</div></div>
+        <div class="kv"><div class="k">Volume 0..31</div><div class="v" id="vol">-</div></div>
+        <div class="kv"><div class="k">Connection</div><div class="v" id="conn">-</div></div>
+        <div class="kv"><div class="k">Device Name</div><div class="v" id="devName">-</div></div>
+        <div class="kv"><div class="k">MAC</div><div class="v" id="devMac">-</div></div>
+      </div>
+      <div class="row">
+        <button class="btn ok" type="button" onclick="initEmitter()">INIT</button>
+        <button class="btn" type="button" onclick="pulseConnect()">CONNECT PULSE</button>
+        <button class="btn" type="button" onclick="sendAt('AT+BT_MODE?')">MODE?</button>
+        <button class="btn warn" type="button" onclick="resetEmitter()">RESET</button>
+        <button class="btn bad" type="button" onclick="powerOffEmitter()">POWER OFF</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="title">Controls</h2>
+      <div class="split">
+        <div class="input">
+          <label for="volRange">AT+VOL=xx</label>
+          <input type="range" min="0" max="31" value="10" id="volRange" oninput="document.getElementById('volText').textContent=this.value">
+          <div class="row" style="margin-top:8px;">
+            <button class="btn" type="button" onclick="applyVolume()">Set Volume</button>
+            <span class="tiny">Value: <strong id="volText">10</strong></span>
+          </div>
+        </div>
+        <div class="input">
+          <label for="macInput">Quick connect AT+ADDLINKADD</label>
+          <input type="text" id="macInput" placeholder="e.g. 82435181CC6A or 82:43:51:81:CC:6A" autocomplete="off">
+          <div class="row" style="margin-top:8px;">
+            <button class="btn" type="button" onclick="addMac()">Add MAC</button>
+            <button class="btn" type="button" onclick="sendAt('AT+VMLINK?')">Refresh Memory</button>
+            <button class="btn bad" type="button" onclick="sendAt('AT+DELVMLINK')">Clear Memory</button>
+          </div>
+          <div class="tiny" style="margin-top:6px;">Module mode defaults to TX at startup (configured in firmware).</div>
+        </div>
+      </div>
+      <div class="input" style="margin-top:10px;">
+        <label for="atInput">AT Console</label>
+        <input type="text" id="atInput" placeholder="Type command, e.g. AT+GMR?" autocomplete="off" onkeydown="if(event.key==='Enter'){sendAtInput();}">
+        <div class="row" style="margin-top:8px;">
+          <button class="btn ok" type="button" onclick="sendAtInput()">Send</button>
+          <button class="btn" type="button" onclick="sendAt('AT+')">AT+</button>
+          <button class="btn" type="button" onclick="sendAt('AT+GMR?')">GMR?</button>
+          <button class="btn" type="button" onclick="sendAt('AT+STATUS?')">STATUS?</button>
+          <button class="btn" type="button" onclick="sendAt('AT+PAIR')">PAIR</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="title">Saved Devices (VMLINK)</h2>
+      <div class="tiny" style="margin-bottom:8px;">Clicking a record sends AT+ADDLINKADD=MAC (useful for quickly switching saved module entries).</div>
+      <div class="list" id="savedList"></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="title">BT Device Scan</h2>
+      <div class="row" style="margin-top:0;">
+        <button class="btn ok" type="button" onclick="startScan()">SCAN</button>
+        <button class="btn" type="button" onclick="connectSelectedScan()">CONNECT</button>
+      </div>
+      <div class="input" style="margin-top:8px;">
+        <label for="scanSelectedMac">Selected MAC from scan list</label>
+        <input type="text" id="scanSelectedMac" placeholder="Click a scan result and the MAC will appear here" autocomplete="off">
+      </div>
+      <div class="tiny" style="margin:8px 0;">After scanning, click CONNECT on a device to send AT+ADDLINKADD=MAC.</div>
+      <div class="list" id="scanList"></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="title">Log</h2>
+      <div class="log" id="log"></div>
+    </section>
+
+    <div class="foot">VTom Radio BT Panel<br>Bluetooth by A. Jaroszuk</div>
+  </div>
+
+  <script>
+    const state = {
+      socket: null,
+      reconnectTimer: null,
+      savedNames: {},
+      savedMacs: {},
+      scannedItems: {},
+      knownNames: {},
+      selectedScanMac: '',
+      pendingConnectMac: '',
+      scanActive: false,
+      scanRetries: 0,
+      scanTimer: null,
+      autoLinkMac: '',
+      vmlinkCount: 0,
+      lastTitle1: '',
+      lastTitle2: '',
+      lastConnectedMac: '',
+      lastConnectedName: '',
+      lastTouch: Date.now()
+    };
+
+    function loadKnownNames() {
+      try {
+        const raw = localStorage.getItem('kcxKnownNames');
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') {
+          state.knownNames = obj;
+        }
+      } catch (e) {
+        state.knownNames = {};
+      }
+
+      try {
+        const m = localStorage.getItem('kcxLastConnectedMac');
+        const n = localStorage.getItem('kcxLastConnectedName');
+        state.lastConnectedMac = normalizeMac(m || '');
+        state.lastConnectedName = String(n || '').trim();
+      } catch (e) {
+        state.lastConnectedMac = '';
+        state.lastConnectedName = '';
+      }
+    }
+
+    function saveKnownNames() {
+      try {
+        localStorage.setItem('kcxKnownNames', JSON.stringify(state.knownNames));
+      } catch (e) {
+        // ignore storage errors
+      }
+    }
+
+    function rememberName(mac, name) {
+      const raw = normalizeMac(mac);
+      const n = String(name || '').trim();
+      if (!raw || !n) return;
+      state.knownNames[raw] = n;
+      saveKnownNames();
+    }
+
+    function rememberLastConnected(mac, name) {
+      const raw = normalizeMac(mac);
+      const n = String(name || '').trim();
+      if (!raw) return;
+      state.lastConnectedMac = raw;
+      state.lastConnectedName = n;
+      try {
+        localStorage.setItem('kcxLastConnectedMac', raw);
+        localStorage.setItem('kcxLastConnectedName', n);
+      } catch (e) {
+        // ignore storage errors
+      }
+      if (n) rememberName(raw, n);
+    }
+
+    function findKnownName(mac) {
+      const raw = normalizeMac(mac);
+      if (!raw) return '';
+      if (state.knownNames[raw]) return state.knownNames[raw];
+      if (state.scannedItems[raw] && state.scannedItems[raw].name) return state.scannedItems[raw].name;
+      const slots = Object.keys(state.savedMacs);
+      for (let i = 0; i < slots.length; i++) {
+        const idx = slots[i];
+        if ((state.savedMacs[idx] || '').toUpperCase() === raw) {
+          return state.savedNames[idx] || '';
+        }
+      }
+      return '';
+    }
+
+    function applyTelemetryPayload(payload) {
+      if (!Array.isArray(payload)) return;
+      for (let i = 0; i < payload.length; i++) {
+        const item = payload[i];
+        if (!item || typeof item.id !== 'string') continue;
+        if (item.id === 'rssi') {
+          const v = Number(item.value);
+          if (!Number.isNaN(v)) {
+            setText('wifiRssi', String(v) + ' dBm');
+          }
+        }
+        if (item.id === 'heap') {
+          const v = Number(item.value);
+          if (!Number.isNaN(v)) {
+            setText('heap', String(v) + ' %');
+          }
+        }
+        if (item.id === 'title1') {
+          const v = String(item.value || '').trim();
+          if (v) setText('title1', v);
+          if (v && v !== state.lastTitle1) {
+            state.lastTitle1 = v;
+            logLine('in', 'title1: ' + v);
+          }
+        }
+        if (item.id === 'title2') {
+          const v = String(item.value || '').trim();
+          if (v) setText('title2', v);
+          if (v && v !== state.lastTitle2) {
+            state.lastTitle2 = v;
+            logLine('in', 'title2: ' + v);
+          }
+        }
+      }
+    }
+
+    function applyConnectedFallbackFromSaved() {
+      if (document.getElementById('conn').textContent !== 'CONNECTED') return;
+      if (document.getElementById('devMac').textContent !== '-') return;
+
+      const keys = Object.keys(state.savedMacs).sort((a, b) => Number(a) - Number(b));
+      if (keys.length === 0) return;
+
+      let idx = keys[keys.length - 1];
+      if (state.vmlinkCount > 0) {
+        const preferred = String(state.vmlinkCount - 1).padStart(2, '0');
+        if (state.savedMacs[preferred]) idx = preferred;
+      }
+
+      const mac = (state.savedMacs[idx] || '').toUpperCase();
+      if (!mac) return;
+
+      setText('devMac', formatMac(mac));
+      const name = findKnownName(mac) || state.savedNames[idx] || 'Auto Link';
+      setText('devName', name);
+      rememberLastConnected(mac, name === 'Auto Link' ? '' : name);
+    }
+
+    function applyConnectedFallbackFromLast() {
+      if (document.getElementById('conn').textContent !== 'CONNECTED') return;
+      if (document.getElementById('devMac').textContent !== '-') return;
+      const mac = state.lastConnectedMac;
+      if (!mac) return;
+      setText('devMac', formatMac(mac));
+      const name = state.lastConnectedName || findKnownName(mac) || 'Auto Link';
+      setText('devName', name);
+    }
+
+    function isMacAlreadySaved(rawMac) {
+      const raw = normalizeMac(rawMac);
+      if (!raw) return false;
+      const keys = Object.keys(state.savedMacs);
+      for (let i = 0; i < keys.length; i++) {
+        const idx = keys[i];
+        if ((state.savedMacs[idx] || '').toUpperCase() === raw) return true;
+      }
+      return false;
+    }
+
+    function goHome() {
+      window.location.href = '/';
+    }
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    function logLine(kind, text) {
+      const log = document.getElementById('log');
+      const row = document.createElement('div');
+      row.className = 'line ' + kind;
+      row.textContent = text;
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+      state.lastTouch = Date.now();
+    }
+
+    function wsOpen() {
+      setText('wsState', 'WS CONNECTED');
+      document.getElementById('wsState').style.color = 'var(--ok)';
+    }
+
+    function wsClosed() {
+      setText('wsState', 'WS DISCONNECTED');
+      document.getElementById('wsState').style.color = 'var(--warn)';
+    }
+
+    function sendRawWs(message) {
+      if (!state.socket || state.socket.readyState !== 1) {
+        logLine('err', 'WS closed: ' + message);
+        return;
+      }
+      state.socket.send(message);
+      logLine('out', '>> ' + message);
+    }
+
+    function sendAt(at) {
+      const cmd = String(at || '').trim();
+      if (!cmd) return;
+      sendRawWs('btcmd=' + cmd);
+    }
+
+    function sendAtInput() {
+      const inp = document.getElementById('atInput');
+      if (!inp) return;
+      const cmd = String(inp.value || '').trim();
+      if (!cmd) return;
+      sendAt(cmd);
+      inp.value = '';
+    }
+
+    function pulseConnect() {
+      sendRawWs('btconnect=1');
+    }
+
+    function normalizeMac(input) {
+      const raw = String(input || '').trim().toUpperCase().replace(/[^0-9A-F]/g, '');
+      if (raw.length !== 12) return '';
+      return raw;
+    }
+
+    function formatMac(raw12) {
+      if (!raw12 || raw12.length !== 12) return raw12 || '';
+      return raw12.match(/.{1,2}/g).join(':');
+    }
+
+    function applyVolume() {
+      const v = Number(document.getElementById('volRange').value || 0);
+      const vv = Math.max(0, Math.min(31, v));
+      sendRawWs('btvol=' + String(vv));
+      setTimeout(() => sendAt('AT+VOL?'), 250);
+    }
+
+    function addMac() {
+      const input = document.getElementById('macInput');
+      const raw = normalizeMac(input.value);
+      if (!raw) {
+        logLine('err', 'MAC must contain 12 hex characters.');
+        return;
+      }
+      if (isMacAlreadySaved(raw)) {
+        logLine('warn', 'MAC already exists in module memory. Skipping ADDLINKADD.');
+        input.value = formatMac(raw);
+        return;
+      }
+      sendAt('AT+ADDLINKADD=' + raw);
+      input.value = formatMac(raw);
+    }
+
+    function initEmitter() {
+      sendAt('AT+');
+      setTimeout(() => sendAt('AT+GMR?'), 150);
+      setTimeout(() => sendAt('AT+BT_MODE?'), 300);
+      setTimeout(() => sendAt('AT+VOL?'), 450);
+      setTimeout(() => sendAt('AT+STATUS?'), 600);
+      setTimeout(() => sendAt('AT+VMLINK?'), 750);
+    }
+
+    function resetEmitter() {
+      setText('mode', 'RESTARTING');
+      sendAt('AT+RESET');
+      setTimeout(() => sendAt('AT+BT_MODE?'), 500);
+      setTimeout(() => sendAt('AT+STATUS?'), 700);
+      setTimeout(() => sendAt('AT+VOL?'), 900);
+    }
+
+    function powerOffEmitter() {
+      sendAt('AT+POWER_OFF');
+      setText('mode', 'OFF');
+      setText('conn', 'DISCONNECTED');
+      setText('devName', '-');
+      setText('devMac', '-');
+      setTimeout(() => sendAt('AT+STATUS?'), 500);
+    }
+
+    function renderSaved() {
+      const list = document.getElementById('savedList');
+      list.innerHTML = '';
+      const keys = Object.keys(state.savedMacs).sort((a, b) => Number(a) - Number(b));
+      if (keys.length === 0) {
+        if (state.autoLinkMac) {
+          const row = document.createElement('div');
+          row.className = 'item';
+          const name = findKnownName(state.autoLinkMac) || 'Auto Link';
+          row.innerHTML = '<div><strong>' + name + '</strong><small>' + formatMac(state.autoLinkMac) + '</small></div><div class="tiny">auto</div>';
+          row.addEventListener('click', () => {
+            setText('devName', name);
+            setText('devMac', formatMac(state.autoLinkMac));
+            connectByMac(state.autoLinkMac);
+          });
+          list.appendChild(row);
+          return;
+        }
+        const empty = document.createElement('div');
+        empty.className = 'tiny';
+        empty.textContent = 'No VMLINK records. Click Refresh Memory.';
+        list.appendChild(empty);
+        return;
+      }
+
+      keys.forEach((idx) => {
+        const mac = state.savedMacs[idx] || '';
+        const name = state.savedNames[idx] || 'Unnamed';
+        const row = document.createElement('div');
+        row.className = 'item';
+        row.innerHTML = '<div><strong>' + name + '</strong><small>' + formatMac(mac) + '</small></div><div class="tiny">slot ' + idx + '</div>';
+        row.addEventListener('click', () => {
+          setText('devName', name);
+          setText('devMac', formatMac(mac));
+          connectByMac(mac);
+        });
+        list.appendChild(row);
+      });
+    }
+
+    function connectByMac(mac) {
+      const raw = normalizeMac(mac);
+      if (!raw) {
+        logLine('err', 'Invalid MAC for connection.');
+        return;
+      }
+      state.pendingConnectMac = raw;
+      const scanned = state.scannedItems[raw];
+      if (scanned) {
+        setText('devName', scanned.name || 'Unknown');
+      }
+      setText('devMac', formatMac(raw));
+      if (isMacAlreadySaved(raw)) {
+        logLine('warn', 'MAC already saved. Starting pair/connect without adding duplicate entry.');
+        sendAt('AT+PAIR');
+        return;
+      }
+      sendAt('AT+ADDLINKADD=' + raw);
+    }
+
+    function updateSelectedScanMacUi() {
+      const inp = document.getElementById('scanSelectedMac');
+      if (inp) inp.value = formatMac(state.selectedScanMac || '');
+    }
+
+    function selectScanned(mac) {
+      const raw = normalizeMac(mac);
+      if (!raw) return;
+      state.selectedScanMac = raw;
+      updateSelectedScanMacUi();
+      renderScanned();
+    }
+
+    function connectSelectedScan() {
+      const input = document.getElementById('scanSelectedMac');
+      const fromInput = input ? input.value : '';
+      const raw = normalizeMac(fromInput || state.selectedScanMac);
+      if (!raw) {
+        logLine('err', 'Select a device from the scan list or enter a MAC first.');
+        return;
+      }
+      state.selectedScanMac = raw;
+      updateSelectedScanMacUi();
+      connectByMac(raw);
+    }
+
+    function startScan() {
+      state.scannedItems = {};
+      state.selectedScanMac = '';
+      state.scanActive = true;
+      state.scanRetries = 0;
+      if (state.scanTimer) {
+        clearTimeout(state.scanTimer);
+        state.scanTimer = null;
+      }
+      updateSelectedScanMacUi();
+      renderScanned();
+      logLine('warn', 'BT scan started (AT+DISCON -> AT+PAIR)...');
+      sendAt('AT+DISCON');
+      setTimeout(() => sendAt('AT+PAIR'), 220);
+      state.scanTimer = setTimeout(() => {
+        if (Object.keys(state.scannedItems).length === 0) {
+          state.scanRetries = 1;
+          logLine('warn', 'No scan results yet. Retrying AT+PAIR...');
+          sendAt('AT+PAIR');
+          state.scanTimer = setTimeout(() => {
+            if (Object.keys(state.scannedItems).length === 0) {
+              logLine('warn', 'No devices found. Put headphones in pairing mode and try SCAN again.');
+            }
+            state.scanActive = false;
+          }, 9000);
+        } else {
+          state.scanActive = false;
+        }
+      }, 9000);
+    }
+
+    function renderScanned() {
+      const list = document.getElementById('scanList');
+      list.innerHTML = '';
+      const keys = Object.keys(state.scannedItems).sort();
+      if (keys.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'tiny';
+        empty.textContent = 'No scan results. Click SCAN.';
+        list.appendChild(empty);
+        return;
+      }
+
+      keys.forEach((macKey) => {
+        const item = state.scannedItems[macKey];
+        const row = document.createElement('div');
+        row.className = 'item';
+        if (state.selectedScanMac && state.selectedScanMac === item.mac) row.classList.add('selected');
+
+        const left = document.createElement('div');
+        left.innerHTML = '<strong>' + (item.name || 'Unknown') + '</strong><small>' + formatMac(item.mac) + '</small>';
+
+        const right = document.createElement('div');
+        right.className = 'item-actions';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'item-btn';
+        btn.textContent = 'Connect';
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          selectScanned(item.mac);
+          connectByMac(item.mac);
+        });
+        right.appendChild(btn);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        row.addEventListener('click', () => selectScanned(item.mac));
+        list.appendChild(row);
+      });
+
+      if (!state.selectedScanMac && keys.length > 0) {
+        state.selectedScanMac = keys[0];
+        updateSelectedScanMacUi();
+      }
+    }
+
+    function parseBtLine(line) {
+      const txt = String(line || '').trim();
+      if (!txt) return;
+      logLine('in', txt);
+
+      if (txt.startsWith('OK+VERS:')) {
+        setText('fw', txt.substring(8));
+        return;
+      }
+      if (txt === 'OK+PAIR' || txt.startsWith('SCAN')) {
+        state.scanActive = true;
+      }
+      if (txt === 'OK+BT_EMITTER') {
+        setText('mode', 'TX');
+        return;
+      }
+      if (txt === 'OK+BT_RECEIVER') {
+        setText('mode', 'RX');
+        return;
+      }
+      if (txt === 'STATE MODE=TX') {
+        setText('mode', 'TX');
+        return;
+      }
+      if (txt === 'STATE MODE=RX') {
+        setText('mode', 'RX');
+        return;
+      }
+      if (txt === 'STATE MODE=HW') {
+        setText('mode', 'HW STRAP');
+        return;
+      }
+      m = txt.match(/^OK\+BT_MODE\s*[:=]\s*(TX|RX|HW)$/i);
+      if (m) {
+        const mm = String(m[1] || '').toUpperCase();
+        setText('mode', mm === 'HW' ? 'HW STRAP' : mm);
+        return;
+      }
+      m = txt.match(/^STATE\s+MODE\s*[:=]\s*(TX|RX|HW|OFF)$/i);
+      if (m) {
+        const sm = String(m[1] || '').toUpperCase();
+        if (sm === 'OFF') {
+          setText('mode', 'OFF');
+          setText('conn', 'DISCONNECTED');
+          setText('devName', '-');
+          setText('devMac', '-');
+        } else {
+          setText('mode', sm === 'HW' ? 'HW STRAP' : sm);
+        }
+        return;
+      }
+      if (txt === 'STATE MODE=OFF' || txt === 'STATE-MODE=OFF') {
+        setText('mode', 'OFF');
+        setText('conn', 'DISCONNECTED');
+        setText('devName', '-');
+        setText('devMac', '-');
+        return;
+      }
+      if (txt === 'OK+RESET' || txt === 'RESET') {
+        setText('mode', 'RESTARTING');
+        setText('conn', 'DISCONNECTED');
+        return;
+      }
+      if (txt === 'OK+POWER_OFF' || txt === 'OK+POWEROFF' || txt === 'POWER_OFF' || txt === 'POWEROFF') {
+        setText('mode', 'OFF');
+        setText('conn', 'DISCONNECTED');
+        setText('devName', '-');
+        setText('devMac', '-');
+        return;
+      }
+      if (txt.startsWith('OK+VOL=')) {
+        const v = txt.substring(7);
+        setText('vol', v);
+        const n = Number(v);
+        if (!Number.isNaN(n)) {
+          document.getElementById('volRange').value = String(Math.max(0, Math.min(31, n)));
+          document.getElementById('volText').textContent = String(Math.max(0, Math.min(31, n)));
+        }
+        return;
+      }
+      if (txt.startsWith('OK+NAME=')) {
+        setText('devName', txt.substring(8));
+        return;
+      }
+      if (txt.startsWith('OK+MAC=')) {
+        const mac = txt.substring(7).toUpperCase();
+        setText('devMac', formatMac(mac));
+        return;
+      }
+      let m = txt.match(/^OK\+STATUS\s*[:=]\s*(\d+)/i);
+      if (m) {
+        if (m[1] === '1') {
+          setText('conn', 'CONNECTED');
+          if (document.getElementById('devName').textContent === '-') {
+            setText('devName', 'Connected device');
+          }
+          if (document.getElementById('devMac').textContent === '-') {
+            setText('devMac', 'Unknown');
+          }
+        } else {
+          setText('conn', 'DISCONNECTED');
+          if (document.getElementById('devName').textContent === 'Connected device') {
+            setText('devName', '-');
+          }
+          if (document.getElementById('devMac').textContent === 'Unknown') {
+            setText('devMac', '-');
+          }
+        }
+        return;
+      }
+      m = txt.match(/^STATUS\s*[:=]\s*(\d+)/i);
+      if (m) {
+        setText('conn', m[1] === '1' ? 'CONNECTED' : 'DISCONNECTED');
+        return;
+      }
+      m = txt.match(/^Auto_link_Add:([0-9A-Fa-f]{12})$/);
+      if (m) {
+        const mac = m[1].toUpperCase();
+        state.autoLinkMac = mac;
+        setText('devMac', formatMac(mac));
+        const known = findKnownName(mac);
+        setText('devName', known || 'Auto Link');
+        rememberLastConnected(mac, known);
+        renderSaved();
+        return;
+      }
+      if (txt === 'Auto_link_Add:null') {
+        state.autoLinkMac = '';
+        applyConnectedFallbackFromSaved();
+        applyConnectedFallbackFromLast();
+        if (document.getElementById('conn').textContent === 'CONNECTED') {
+          if (document.getElementById('devName').textContent === '-') {
+            setText('devName', 'Connected device');
+          }
+          if (document.getElementById('devMac').textContent === '-') {
+            setText('devMac', 'Unknown');
+          }
+        }
+        renderSaved();
+        return;
+      }
+      m = txt.match(/^CONNECT=>MacAdd:([0-9A-Fa-f]{12}),Name:(.*)$/);
+      if (m) {
+        const mac = m[1].toUpperCase();
+        const name = (m[2] || '').trim();
+        setText('conn', 'CONNECTED');
+        setText('devMac', formatMac(mac));
+        state.scanActive = false;
+        if (state.scanTimer) {
+          clearTimeout(state.scanTimer);
+          state.scanTimer = null;
+        }
+        if (name) {
+          setText('devName', name);
+          rememberName(mac, name);
+        }
+        rememberLastConnected(mac, name);
+        state.pendingConnectMac = '';
+        return;
+      }
+      if (txt.indexOf('Status -> Connected') >= 0 || txt.startsWith('CONNECT')) {
+        setText('conn', 'CONNECTED');
+        if (state.pendingConnectMac) {
+          setText('devMac', formatMac(state.pendingConnectMac));
+        }
+        return;
+      }
+      if (txt.indexOf('Status -> Disconnected') >= 0 || txt.indexOf('no connect') >= 0) {
+        setText('conn', 'DISCONNECTED');
+        if (document.getElementById('mode').textContent === 'RESTARTING') {
+          setText('mode', 'TX');
+        }
+        return;
+      }
+
+      m = txt.match(/^MEM_Name\s+(\d+):(.*)$/);
+      if (m) {
+        state.savedNames[m[1]] = m[2].trim();
+        renderSaved();
+        return;
+      }
+
+      m = txt.match(/^MEM_MacAdd\s+(\d+):([0-9A-Fa-f]{12})$/);
+      if (m) {
+        state.savedMacs[m[1]] = m[2].toUpperCase();
+        applyConnectedFallbackFromSaved();
+        applyConnectedFallbackFromLast();
+        renderSaved();
+        return;
+      }
+
+      m = txt.match(/^VM_MacAdd\s*(\d+)\s*=\s*0x?([0-9A-Fa-f]{12})$/);
+      if (m) {
+        state.savedMacs[m[1]] = m[2].toUpperCase();
+        applyConnectedFallbackFromSaved();
+        applyConnectedFallbackFromLast();
+        renderSaved();
+        return;
+      }
+
+      m = txt.match(/^VM_Name\s*(\d+)\s*=\s*(.*)$/);
+      if (m) {
+        state.savedNames[m[1]] = (m[2] || '').trim();
+        if (state.savedMacs[m[1]] && state.savedNames[m[1]]) {
+          rememberName(state.savedMacs[m[1]], state.savedNames[m[1]]);
+        }
+        applyConnectedFallbackFromSaved();
+        applyConnectedFallbackFromLast();
+        renderSaved();
+        return;
+      }
+
+      m = txt.match(/^BT_ADD_NUM=(\d+)$/);
+      if (m) {
+        state.vmlinkCount = Number(m[1]) || 0;
+        applyConnectedFallbackFromSaved();
+        applyConnectedFallbackFromLast();
+        return;
+      }
+
+      m = txt.match(/^MacAdd:([0-9A-Fa-f]{12}),Name:(.*)$/);
+      if (m) {
+        const mac = m[1].toUpperCase();
+        const name = (m[2] || '').trim();
+        state.scannedItems[mac] = { mac: mac, name: name };
+        state.scanActive = false;
+        if (state.scanTimer) {
+          clearTimeout(state.scanTimer);
+          state.scanTimer = null;
+        }
+        if (name) rememberName(mac, name);
+        renderScanned();
+        return;
+      }
+
+      m = txt.match(/^MacAdd\s*([0-9A-Fa-f]{12})[,\s]+Name[:\s]+(.*)$/);
+      if (m) {
+        const mac = m[1].toUpperCase();
+        const name = (m[2] || '').trim();
+        state.scannedItems[mac] = { mac: mac, name: name };
+        state.scanActive = false;
+        if (state.scanTimer) {
+          clearTimeout(state.scanTimer);
+          state.scanTimer = null;
+        }
+        if (name) rememberName(mac, name);
+        renderScanned();
+        return;
+      }
+
+      if (txt.startsWith('SCAN')) {
+        return;
+      }
+
+      if (txt.startsWith('OK+VMLINK')) {
+        state.savedNames = {};
+        state.savedMacs = {};
+        renderSaved();
+      }
+    }
+
+    function connectSocket() {
+      state.socket = new WebSocket('ws://' + location.host + '/ws');
+
+      state.socket.addEventListener('open', () => {
+        wsOpen();
+        logLine('warn', 'WS connected');
+        initEmitter();
+      });
+
+      state.socket.addEventListener('close', () => {
+        wsClosed();
+        logLine('warn', 'WS disconnected, retry in 2s');
+        clearTimeout(state.reconnectTimer);
+        state.reconnectTimer = setTimeout(connectSocket, 2000);
+      });
+
+      state.socket.addEventListener('message', (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg && typeof msg.btline === 'string') {
+            parseBtLine(msg.btline);
+            return;
+          }
+          if (msg && Array.isArray(msg.payload)) {
+            applyTelemetryPayload(msg.payload);
+            return;
+          }
+          if (msg && msg.ping) {
+            return;
+          }
+        } catch (e) {
+          // fallback below
+        }
+
+        const plain = String(event.data || '').trim();
+        if (plain) parseBtLine(plain);
+      });
+    }
+
+    loadKnownNames();
+    connectSocket();
+    renderScanned();
+
+    // Keep BT panel quiet: no periodic AT polling to avoid log spam and command collisions.
+  </script>
+</body>
+</html>

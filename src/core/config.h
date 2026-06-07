@@ -97,6 +97,10 @@ struct theme_t {
     uint16_t rssi;
     uint16_t rssi_bg;
     uint16_t rssi_border;
+    /*----- BT ICON -----*/
+    uint16_t bt;
+    uint16_t bt_bg;
+    uint16_t bt_border;
     /*----- BITRATE -----*/
     uint16_t bitrate;
     /*----- PLAYLIST -----*/

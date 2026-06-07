@@ -57,6 +57,242 @@ NetServer netserver;
 AsyncWebServer webserver(80);
 AsyncWebSocket websocket("/ws");
 
+static bool   g_kcxReady = false;
+static int8_t g_kcxLastLink = -1;
+static size_t g_kcxRxLen = 0;
+static char   g_kcxRxBuf[240];
+static uint32_t g_kcxLastWsLineMs = 0;
+static bool     g_kcxConnectPulseActive = false;
+static uint32_t g_kcxConnectPulseAtMs = 0;
+
+#ifndef KCX_BT_WS_RATE_LIMIT_MS
+  #define KCX_BT_WS_RATE_LIMIT_MS 80
+#endif
+
+#ifndef KCX_BT_RX_BUDGET_PER_LOOP
+  #define KCX_BT_RX_BUDGET_PER_LOOP 96
+#endif
+
+#ifndef KCX_BT_CONNECT_PULSE_MS
+  #define KCX_BT_CONNECT_PULSE_MS 15
+#endif
+
+#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
+static bool     g_kcxStartupVolPending = false;
+static uint8_t  g_kcxStartupVolAttempts = 0;
+static uint32_t g_kcxStartupVolNextTryMs = 0;
+static constexpr uint8_t  KCX_BT_STARTUP_VOL_MAX_ATTEMPTS = 8;
+static constexpr uint32_t KCX_BT_STARTUP_VOL_INITIAL_DELAY_MS = 700;
+static constexpr uint32_t KCX_BT_STARTUP_VOL_RETRY_DELAY_MS = 450;
+static constexpr uint32_t KCX_BT_STARTUP_VOL_AFTER_CONNECT_DELAY_MS = 550;
+#endif
+
+static void kcxSendCommand(const char* cmd);
+
+#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
+static void kcxScheduleStartupVolume(uint32_t delayMs) {
+  g_kcxStartupVolPending = true;
+  g_kcxStartupVolAttempts = 0;
+  g_kcxStartupVolNextTryMs = millis() + delayMs;
+}
+#endif
+
+static inline bool kcxConfigured() {
+  return KCX_BT_RX >= 0 && KCX_BT_TX >= 0;
+}
+
+static String escapeJsonString(const char* s) {
+  String out;
+  if (!s) return out;
+  while (*s) {
+    char c = *s++;
+    if (c == '\\' || c == '"') {
+      out += '\\';
+      out += c;
+    } else if (c == '\n' || c == '\r' || c == '\t') {
+      out += ' ';
+    } else if (static_cast<uint8_t>(c) >= 32) {
+      out += c;
+    }
+  }
+  return out;
+}
+
+static void kcxWsLine(const char* line) {
+  if (!line || !line[0]) return;
+  if (websocket.count() == 0) return;
+
+  const bool bypassRateLimit = (line[0] == '>' || strncmp(line, "ERR", 3) == 0);
+  if (!bypassRateLimit) {
+    uint32_t now = millis();
+    if (static_cast<int32_t>(now - g_kcxLastWsLineMs) < KCX_BT_WS_RATE_LIMIT_MS) {
+      return;
+    }
+    g_kcxLastWsLineMs = now;
+  }
+
+  String payload = "{\"btline\":\"";
+  payload += escapeJsonString(line);
+  payload += "\"}";
+  websocket.textAll(payload);
+}
+
+static void kcxHandleConnectPulse() {
+  if (!g_kcxConnectPulseActive) return;
+  if (static_cast<int32_t>(millis() - g_kcxConnectPulseAtMs) < KCX_BT_CONNECT_PULSE_MS) return;
+
+  digitalWrite(KCX_BT_CONNECT, HIGH);
+  g_kcxConnectPulseActive = false;
+}
+
+static void kcxBeginBackend() {
+  if (!kcxConfigured()) return;
+  if (g_kcxReady) return;
+
+  if (KCX_BT_CONNECT >= 0) {
+    pinMode(KCX_BT_CONNECT, OUTPUT);
+    digitalWrite(KCX_BT_CONNECT, HIGH);
+  }
+  if (KCX_BT_MODE >= 0) {
+    pinMode(KCX_BT_MODE, OUTPUT);
+    digitalWrite(KCX_BT_MODE, HIGH);
+  }
+  if (KCX_BT_LINK >= 0) {
+    pinMode(KCX_BT_LINK, INPUT_PULLUP);
+    g_kcxLastLink = digitalRead(KCX_BT_LINK);
+  }
+
+  Serial2.begin(KCX_BT_BAUD, SERIAL_8N1, KCX_BT_RX, KCX_BT_TX);
+  while (Serial2.available()) (void)Serial2.read();
+
+  g_kcxRxLen = 0;
+  g_kcxReady = true;
+  kcxWsLine("STATE KCX=READY");
+#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
+  kcxScheduleStartupVolume(KCX_BT_STARTUP_VOL_INITIAL_DELAY_MS);
+#endif
+  if (KCX_BT_MODE >= 0) {
+    kcxWsLine("STATE MODE=TX");
+  } else {
+    kcxWsLine("STATE MODE=HW");
+  }
+  if (KCX_BT_LINK >= 0) {
+    if (g_kcxLastLink) {
+      kcxWsLine("Status -> Connected");
+    } else {
+      kcxWsLine("Status -> Disconnected");
+    }
+  }
+}
+
+static void kcxSetMode(bool txMode) {
+  if (KCX_BT_MODE < 0) {
+    kcxWsLine("ERR MODE pin not configured");
+    return;
+  }
+
+  digitalWrite(KCX_BT_MODE, txMode ? HIGH : LOW);
+  kcxWsLine(txMode ? "STATE MODE=TX" : "STATE MODE=RX");
+  // Same idea as author's library: apply mode pin change and reset module.
+  kcxSendCommand("AT+RESET");
+}
+
+static void kcxPulseConnect() {
+  if (KCX_BT_CONNECT < 0) {
+    kcxWsLine("ERR CONNECT pin not configured");
+    return;
+  }
+
+  if (g_kcxConnectPulseActive) {
+    return;
+  }
+  digitalWrite(KCX_BT_CONNECT, LOW);
+  g_kcxConnectPulseActive = true;
+  g_kcxConnectPulseAtMs = millis();
+  kcxWsLine("STATE CONNECT=PULSE");
+#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
+  // Waking from POWER_OFF may restore module defaults; re-apply desired startup volume.
+  kcxScheduleStartupVolume(KCX_BT_STARTUP_VOL_AFTER_CONNECT_DELAY_MS);
+#endif
+}
+
+static void kcxSendCommand(const char* cmd) {
+  if (!g_kcxReady || !cmd) return;
+
+  String line(cmd);
+  line.trim();
+  if (!line.length()) return;
+
+  Serial2.print(line);
+  Serial2.print("\r\n");
+
+  String tx = ">> ";
+  tx += line;
+  kcxWsLine(tx.c_str());
+}
+
+static void kcxLoopBackend() {
+  if (!g_kcxReady) return;
+
+  kcxHandleConnectPulse();
+
+#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
+  if (g_kcxStartupVolPending && static_cast<int32_t>(millis() - g_kcxStartupVolNextTryMs) >= 0) {
+    char volCmd[16];
+    snprintf(volCmd, sizeof(volCmd), "AT+VOL=%02d", KCX_BT_STARTUP_VOL);
+    kcxSendCommand(volCmd);
+
+    g_kcxStartupVolAttempts++;
+    if (g_kcxStartupVolAttempts >= KCX_BT_STARTUP_VOL_MAX_ATTEMPTS) {
+      g_kcxStartupVolPending = false;
+    } else {
+      g_kcxStartupVolNextTryMs = millis() + KCX_BT_STARTUP_VOL_RETRY_DELAY_MS;
+    }
+  }
+#endif
+
+  if (KCX_BT_LINK >= 0) {
+    int8_t linkNow = digitalRead(KCX_BT_LINK);
+    if (linkNow != g_kcxLastLink) {
+      g_kcxLastLink = linkNow;
+      if (linkNow) kcxWsLine("Status -> Connected");
+      else kcxWsLine("Status -> Disconnected");
+    }
+  }
+
+  size_t budget = KCX_BT_RX_BUDGET_PER_LOOP;
+  while (budget-- > 0 && Serial2.available()) {
+    int ch = Serial2.read();
+    if (ch < 0) break;
+    if (ch == '\r') continue;
+    if (ch == '\n') {
+      if (g_kcxRxLen > 0) {
+        g_kcxRxBuf[g_kcxRxLen] = '\0';
+#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
+        if (strncmp(g_kcxRxBuf, "OK+VOL=", 7) == 0) {
+          const int currentVol = atoi(g_kcxRxBuf + 7);
+          if (currentVol == KCX_BT_STARTUP_VOL) {
+            g_kcxStartupVolPending = false;
+          } else if (g_kcxStartupVolAttempts < KCX_BT_STARTUP_VOL_MAX_ATTEMPTS) {
+            g_kcxStartupVolPending = true;
+            g_kcxStartupVolNextTryMs = millis() + KCX_BT_STARTUP_VOL_RETRY_DELAY_MS;
+          } else {
+            g_kcxStartupVolPending = false;
+          }
+        }
+#endif
+        kcxWsLine(g_kcxRxBuf);
+        g_kcxRxLen = 0;
+      }
+      continue;
+    }
+    if (ch < 32 || ch > 126) continue;
+    if (g_kcxRxLen < sizeof(g_kcxRxBuf) - 1) {
+      g_kcxRxBuf[g_kcxRxLen++] = static_cast<char>(ch);
+    }
+  }
+}
+
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
 void handleIndex(AsyncWebServerRequest *request);
 void handleNotFound(AsyncWebServerRequest *request);
@@ -569,7 +805,7 @@ bool NetServer::begin(bool quiet) {
         return;
       }
 
-      display.invalidateThemeWidgets();
+      display.putRequest(INVALIDATETHEMEWIDGETS, 0);
       display.putRequest(NEWMODE, CLEAR);
       display.putRequest(NEWMODE, PLAYER);
 
@@ -630,7 +866,7 @@ bool NetServer::begin(bool quiet) {
       displayMode_e currentMode = display.mode();
       if (currentMode == CLEAR) { currentMode = PLAYER; }
 
-      display.invalidateThemeWidgets();
+      display.putRequest(INVALIDATETHEMEWIDGETS, 0);
 
       display.putRequest(NEWMODE, CLEAR);
       display.putRequest(NEWMODE, currentMode);
@@ -682,6 +918,7 @@ bool NetServer::begin(bool quiet) {
 
   webserver.serveStatic("/", LittleFS, "/www/");
   webserver.begin();
+  kcxBeginBackend();
 
   //if(strlen(config.store.mdnsname)>0)
   //  MDNS.begin(config.store.mdnsname);
@@ -1098,6 +1335,7 @@ void NetServer::loop() {
     ESP.restart();
   }
   processQueue();
+  kcxLoopBackend();
   updateWifiScanCache();
   websocket.cleanupClients();
   switch (importRequest) {
@@ -1160,6 +1398,61 @@ void NetServer::onWsMessage(void *arg, uint8_t *data, size_t len, uint8_t client
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
     data[len] = 0;
     if (config.parseWsCommand((const char *)data, _wscmd, _wsval, 65)) {
+      if (strcmp(_wscmd, "btcmd") == 0) {
+        if (!kcxConfigured()) {
+          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
+          return;
+        }
+        if (!g_kcxReady) {
+          kcxBeginBackend();
+        }
+        kcxSendCommand(_wsval);
+        return;
+      }
+      if (strcmp(_wscmd, "btvol") == 0) {
+        if (!kcxConfigured()) {
+          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
+          return;
+        }
+        if (!g_kcxReady) {
+          kcxBeginBackend();
+        }
+        int vol = atoi(_wsval);
+        if (vol < 0) vol = 0;
+        if (vol > 31) vol = 31;
+        char volCmd[16];
+        snprintf(volCmd, sizeof(volCmd), "AT+VOL=%02d", vol);
+        kcxSendCommand(volCmd);
+        return;
+      }
+      if (strcmp(_wscmd, "btmode") == 0) {
+        if (!kcxConfigured()) {
+          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
+          return;
+        }
+        if (!g_kcxReady) {
+          kcxBeginBackend();
+        }
+        if (strcasecmp(_wsval, "TX") == 0) {
+          kcxSetMode(true);
+        } else if (strcasecmp(_wsval, "RX") == 0) {
+          kcxSetMode(false);
+        } else {
+          kcxWsLine("ERR btmode expects TX or RX");
+        }
+        return;
+      }
+      if (strcmp(_wscmd, "btconnect") == 0) {
+        if (!kcxConfigured()) {
+          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
+          return;
+        }
+        if (!g_kcxReady) {
+          kcxBeginBackend();
+        }
+        kcxPulseConnect();
+        return;
+      }
       if (strcmp(_wscmd, "ping") == 0) {
         websocket.text(clientId, "{\"pong\": 1}");
         return;
@@ -1585,15 +1878,18 @@ void handleNotFound(AsyncWebServerRequest *request) {
       "var fwVersion='%s';\n"
       "var formAction='%s';\n"
       "var playMode='%s';\n"
-    "var isStaConnected=%d;\n"
-      "var dlnaSupported=%d;\n",
+      "var isStaConnected=%d;\n"
+      "var dlnaSupported=%d;\n"
+      "var btSupported=%d;\n",
       FW_VERSION, (network.status == CONNECTED && !config.emptyFS) ? "webboard" : "", (network.status == CONNECTED) ? "player" : "ap",
-    (network.status == CONNECTED) ? 1 : 0,
+      (network.status == CONNECTED) ? 1 : 0,
 #ifdef USE_DLNA
       1
 #else
       0
 #endif
+      ,
+      (KCX_BT_RX >= 0 && KCX_BT_TX >= 0) ? 1 : 0
     );
       AsyncWebServerResponse *response = request->beginResponse(200, "application/javascript", netserver.nsBuf);
       response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");

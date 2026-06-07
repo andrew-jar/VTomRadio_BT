@@ -69,7 +69,7 @@ class Display {
     ClockWidget*    _clock;
     Page*           _boot;
     TextWidget *    _volip, *_voltxt, *_rssi, *_bitrate, *_chtxt;
-    textBoxWidget * _ipbox, *_chbox, *_rssibox, *_bootstring;
+    textBoxWidget * _ipbox, *_chbox, *_rssibox, *_btbox = nullptr, *_bootstring;
     VolumeWidget*   _volwidget;
     WifiWidget*     _wifiwidget;
     NamedayWidget*  _namedaywidget;
@@ -93,6 +93,7 @@ class Display {
     void    _updateBootSprite(int ssidIndex);
     void    _refreshThemeColors();
     void    _applyRssiMode();
+    void    _setBtConnected();
 };
 
 #else

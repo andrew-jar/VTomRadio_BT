@@ -52,7 +52,7 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
    GPIO 13 - MISO  // Nie podłączaj do wyświetlacza LCD!!! - Do not connect to the LCD display!!!
 */
 
-/*----- Touch ISP -----*/
+/*----- Touch SPI -----*/
 //#define TS_MODEL TS_MODEL_XPT2046
 //#define TS_CS    3
 
@@ -97,6 +97,23 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
 /*----- To wake from sleep, you must use GPIO 2, because GPIO 38 is not an RTC pin. It must be connected via the PCB! -----*/
 #define IR_PIN 2  //38
 #define IR_NEC_ONLY  // Build only NEC decoder sources from IRremoteESP8266 (faster/smaller build)
+
+/*----- KCX BT Emitter v1.7 [firmware 1.4] (direct UART) -----
+   Mapowanie nazw z modułu KCX:
+   - pin "TX" modułu  -> KCX_BT_RX na ESP
+   - pin "RX" modułu  -> KCX_BT_TX na ESP
+   - pin "LINK"       -> KCX_BT_LINK na ESP (stan połączenia BT)
+   - pin "CONNECT"    -> KCX_BT_CONNECT na ESP (impuls wybudzający po POWER_OFF)
+   - pin "MODE"       -> KCX_BT_MODE (zwykle HIGH=TX, LOW=RX; zalezy od wersji firmware)                                       
+ */
+
+#define KCX_BT_RX   18
+#define KCX_BT_TX   17
+#define KCX_BT_LINK 16
+#define KCX_BT_CONNECT 15
+#define KCX_BT_MODE -1 // Nie podłączaj 
+#define KCX_BT_BAUD 115200
+#define KCX_BT_STARTUP_VOL 10
 
 /*----- SD CARD -----*/
 // #define SDC_CS     18
