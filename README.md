@@ -12,7 +12,8 @@ Wymagane narzedzia
 - PlatformIO Core: `6.1.19`
 - Python (dla PlatformIO): 3.9+ (zalecane 3.10/3.11)
 
-Do pełnego szczęścia musisz wgrać jeszcze z repo : "WROOM_A2DP" 
+Do pełnego szczęścia musisz wgrać jeszcze z repo : "WROOM_A2DP"  na dodatkowy esp32 Wroom
+
 https://github.com/andrew-jar/WROOM_A2DP
 
 
