@@ -19,6 +19,6 @@ https://github.com/andrew-jar/WROOM_A2DP
 
 <img width="650" height="366" alt="foto" src="https://github.com/user-attachments/assets/3312710f-0300-4406-8c3c-5c7fc1efbfd1" />
 
-Schemat podłaczenia wroom do esp32s3:
+Schemat podłączenia wroom do esp32s3: 
 <img width="1147" height="806" alt="schemat" src="https://github.com/user-attachments/assets/7cf0fc9e-f626-4a39-ba9b-1448d093fd7e" />
 
