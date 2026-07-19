@@ -1,4 +1,5 @@
 Mod. Andrzej Jaroszuk
+
 VTomRadio_BT - wymagane srodowisko kompilacji (VS Code + PlatformIO)
 
 Ten projekt jest przygotowany pod PlatformIO i framework `pioarduino` dla ESP32-S3.
