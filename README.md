@@ -12,5 +12,8 @@ Wymagane narzedzia
 - PlatformIO Core: `6.1.19`
 - Python (dla PlatformIO): 3.9+ (zalecane 3.10/3.11)
 
+Do pełnego szczęścia musisz wgrać jeszcze z repo : "WROOM_A2DP" 
+https://github.com/andrew-jar/WROOM_A2DP
+
 
 <img width="650" height="366" alt="foto" src="https://github.com/user-attachments/assets/3312710f-0300-4406-8c3c-5c7fc1efbfd1" />
