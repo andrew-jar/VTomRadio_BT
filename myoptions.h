@@ -1,14 +1,5 @@
 // clang-format off
-/* https://trip5.github.io/ehRadio_myoptions/generator.html
-   https://github.com/VaraiTamas/yoRadio.git
-    Przeczytaj przed użyciem!!! - Read the before use !!!
-   https://github.com/VaraiTamas/yoRadio/blob/main/README.md !!!
 
-   - Znak // na początku linii dezaktywuje polecenie, dlatego kompilator je ignoruje!
-      W ten sposób możesz ustawić konfigurację odpowiednią dla swojego sprzętu.
-  - The // sign at the beginning of the line makes the command inactive, so the compiler ignores it! 
-    This allows you to set the appropriate configuration for your hardware.
-*/
 
 #pragma once
 
@@ -20,11 +11,11 @@
 
 /* Tutaj możesz ustawić język programu
    You can set the program language here.
-   Supported languages: HU NL PL RU EN GR SK DE UA ES. */
+   Supported languages: HU NL PL RU EN GR SK DE UA ES CZ. */
 #define LANGUAGE PL
 
 /* -- Wyświetlanie imienin -- Display name days --
-Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not filled in.) */
+Supported languages: HU, PL, NL, GR, DE, CZ (UA Local/namedays/namedays_UA.h is not filled in.) */
 #define NAMEDAYS_FILE PL
 
 #define USE_BUILTIN_LED false /* The RGB LED does not turn on.. */
@@ -49,12 +40,12 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
 /*
    GPIO 11 - MOSI
    GPIO 12 - CLK
-   GPIO 13 - MISO  // Nie podłączaj do wyświetlacza LCD!!! - Do not connect to the LCD display!!!
+   GPIO 13 - MISO  // Nie podłączaj do wyświetlacza TFT!!! - (chyba ze dotyk T_DO)
 */
 
 /*----- Touch SPI -----*/
-//#define TS_MODEL TS_MODEL_XPT2046
-//#define TS_CS    3
+#define TS_MODEL TS_MODEL_XPT2046
+#define TS_CS    3
 
 /*----- Touch I2C -----*/
 // #define TS_MODEL TS_MODEL_FT6X36
@@ -73,7 +64,7 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
 #define I2S_BCLK 5
 #define I2S_LRC  6
 // #define I2S_MCLK 0  /* CS4344 DAC: MCLK pin (dla PCM5102A nie jest wymagany / not needed for PCM5102A) */
-//Wolne piny odpowiednie dla MCLK: GPIO 0, 7, 8, 15, 16, 17, 18, 45, 46
+//Wolne piny odpowiednie dla MCLK: GPIO 0, 16, 45, 46
 
 /*----- ENCODER 1 ------*/
 //#define ENC_BTNR 47 // S2 41
@@ -87,10 +78,10 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
 #define ENC2_BTNB 39 // KEY 21
 #define ENC2_INTERNALPULLUP	true
 
-/*----- CLOCK MODUL RTC DS3132 -----*/
- #define RTC_SCL			     7
- #define RTC_SDA			     8
- #define RTC_MODULE DS3231
+/*----- CLOCK MODUL RTC DS3231 -----*/
+ //#define RTC_SCL			     7
+ //#define RTC_SDA			     8
+ //#define RTC_MODULE DS3231
 
 /*----- REMOTE CONTROL INFRARED RECEIVER -----*/
 /*----- Aby wybudzać ze snu, trzeba użyć GPIO 2, ponieważ GPIO 38 nie jest pinem RTC. Należy wykonać połączenie na PCB! -----*/
@@ -98,37 +89,37 @@ Supported languages: HU, PL, NL, GR, DE (UA Local/namedays/namedays_UA.h is not 
 #define IR_PIN 2  //38
 #define IR_NEC_ONLY  // Build only NEC decoder sources from IRremoteESP8266 (faster/smaller build)
 
-/*----- KCX BT Emitter v1.7 [firmware 1.4] (direct UART) -----
-   Mapowanie nazw z modułu KCX:
-   - pin "TX" modułu  -> KCX_BT_RX na ESP
-   - pin "RX" modułu  -> KCX_BT_TX na ESP
-   - pin "LINK"       -> KCX_BT_LINK na ESP (stan połączenia BT)
-   - pin "CONNECT"    -> KCX_BT_CONNECT na ESP (impuls wybudzający po POWER_OFF)
-   - pin "MODE"       -> KCX_BT_MODE (zwykle HIGH=TX, LOW=RX; zalezy od wersji firmware)                                       
+/*----- Clean Bluetooth Bridge on ESP32-WROOM (UART control): -----
+      Polaczenia z ESP32 do ESP32S3:
+    - WROOM TX GPIO17                -> S3 BT_BRIDGE_RX GPIO18 (UART 3.3V direct)
+    - WROOM RX GPIO16                -> S3 BT_BRIDGE_TX GPIO17
+      WROOM GPIO32 (PIN_I2S_DIN)     -> S3 I2S_DOUT GPIO4
+      WROOM GPIO14 (PIN_I2S_BCLK)    -> S3 I2S_BCLK GPIO5
+      WROOM GPIO15 (PIN_I2S_WS)      -> S3 I2S_LRC GPIO6
+    - GND WROOM                      -> GND S3
+
+    Audio idzie po I2S (S3 -> WROOM), sterowanie po UART.
  */
 
-#define KCX_BT_RX   18
-#define KCX_BT_TX   17
-#define KCX_BT_LINK 16
-#define KCX_BT_CONNECT 15
-#define KCX_BT_MODE -1 // Nie podłączaj 
-#define KCX_BT_BAUD 115200
-#define KCX_BT_STARTUP_VOL 10
+#define BT_BRIDGE_RX   18
+#define BT_BRIDGE_TX   17
+#define BT_BRIDGE_BAUD 115200
+#define BT_STARTUP_VOL 70   /* 0..100, wysyła komendę VOL raz po starcie bridge */
 
 /*----- SD CARD -----*/
-// #define SDC_CS     18
-// #define SDSPISPEED 4000000 /* 4MHz - Slower speed to prevent display flicker on shared SPI bus */
+#define SDC_CS     15 // or 16
+#define SD_SPIPINS 12, 13, 11, SDC_CS  // SCK, MISO, MOSI, CS
+#define SDSPISPEED 4000000 /* 4MHz - Slower speed to prevent display flicker on shared SPI bus */
+/*MOSI = GPIO11; SCK/CLK = GPIO12; MISO = GPIO13*/
+
 
 /*----- Przy tym ustawieniu nie ma przewijania paska pogody. -----*/
-/*----- With this setting there is no scrolling on the weather bar. -----*/
 #define WEATHER_FMT_SHORT
 
 /*----- Przy tym ustawieniu wyświetlany jest pełny raport pogodowy. -----*/
-/*----- With this setting, the full weather report is displayed. -----*/
 // #define EXT_WEATHER  true
 
 /*----- Przy tym ustawieniu prędkość wiatru będzie w km/h. -----*/
-/*----- With this setting, the wind speed will be km/h. -----*/
 // #define WIND_SPEED_IN_KMH
 
 /*----- Pin ustawiony tutaj może sterować zasilaniem wzmacniacza audio. Podczas odtwarzania muzyki pin ma stan HIGH (wysoki), co załącza
@@ -147,7 +138,7 @@ When music is not playing (stopped or volume is 0), the pin is set to LOW. This 
 /*----- Dzięki temu urządzenie można wybudzić pilotem i dodatkowym przyciskiem. -----*/
 /*----- Instead of WAKE_PIN, you can now set two pins for wake-up: WAKE_PIN1 and WAKE_PIN2 -----*/
 /*----- This way, you can wake up the device with a remote control and another button. -----*/
-#define BTN_MODE IR_PIN
+// #define BTN_MODE IR_PIN
 #define WAKE_PIN1 IR_PIN
 // #define WAKE_PIN2 ENC2_BTNB
 

@@ -573,7 +573,7 @@ bool _getWeather() {
                         nextion.weatherVisible(1);
 #    endif
 
-                        Serial.printf("##WEATHER###: description: %s, temp:%.1f C, pressure:%dhPa, humidity:%d%%, wind: %d\n", desc, tempf, press, hum, (int)(wind_deg / 22.5));
+                        Serial.printf("##WEATHER###: description: %s, temp:%.1f C, pressure:%dmmHg, humidity:%d%%, wind: %d\n", desc, tempf, press, hum, (int)(wind_deg / 22.5));
 #    ifdef WEATHER_FMT_SHORT
                         sprintf(timekeeper.weatherBuf, LANG::weatherFmt, tempf, press, hum);
 #    else

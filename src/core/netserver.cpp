@@ -11,12 +11,15 @@
 #include "mqtt.h"
 #include "controls.h"
 #include "commandhandler.h"
+#include "btbridge.h"
 #include "timekeeper.h"
 #include "../displays/widgets/widgetsconfig.h"
 
 #ifdef USE_DLNA  //DLNA mod
   #include "../dlna/dlna_index.h"
   #include "../dlna/dlna_service.h"
+
+static SemaphoreHandle_t g_dlnaListRouteMux = nullptr;
 #endif
 
 #if DSP_MODEL == DSP_DUMMY
@@ -57,242 +60,6 @@ NetServer netserver;
 AsyncWebServer webserver(80);
 AsyncWebSocket websocket("/ws");
 
-static bool   g_kcxReady = false;
-static int8_t g_kcxLastLink = -1;
-static size_t g_kcxRxLen = 0;
-static char   g_kcxRxBuf[240];
-static uint32_t g_kcxLastWsLineMs = 0;
-static bool     g_kcxConnectPulseActive = false;
-static uint32_t g_kcxConnectPulseAtMs = 0;
-
-#ifndef KCX_BT_WS_RATE_LIMIT_MS
-  #define KCX_BT_WS_RATE_LIMIT_MS 80
-#endif
-
-#ifndef KCX_BT_RX_BUDGET_PER_LOOP
-  #define KCX_BT_RX_BUDGET_PER_LOOP 96
-#endif
-
-#ifndef KCX_BT_CONNECT_PULSE_MS
-  #define KCX_BT_CONNECT_PULSE_MS 15
-#endif
-
-#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
-static bool     g_kcxStartupVolPending = false;
-static uint8_t  g_kcxStartupVolAttempts = 0;
-static uint32_t g_kcxStartupVolNextTryMs = 0;
-static constexpr uint8_t  KCX_BT_STARTUP_VOL_MAX_ATTEMPTS = 8;
-static constexpr uint32_t KCX_BT_STARTUP_VOL_INITIAL_DELAY_MS = 700;
-static constexpr uint32_t KCX_BT_STARTUP_VOL_RETRY_DELAY_MS = 450;
-static constexpr uint32_t KCX_BT_STARTUP_VOL_AFTER_CONNECT_DELAY_MS = 550;
-#endif
-
-static void kcxSendCommand(const char* cmd);
-
-#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
-static void kcxScheduleStartupVolume(uint32_t delayMs) {
-  g_kcxStartupVolPending = true;
-  g_kcxStartupVolAttempts = 0;
-  g_kcxStartupVolNextTryMs = millis() + delayMs;
-}
-#endif
-
-static inline bool kcxConfigured() {
-  return KCX_BT_RX >= 0 && KCX_BT_TX >= 0;
-}
-
-static String escapeJsonString(const char* s) {
-  String out;
-  if (!s) return out;
-  while (*s) {
-    char c = *s++;
-    if (c == '\\' || c == '"') {
-      out += '\\';
-      out += c;
-    } else if (c == '\n' || c == '\r' || c == '\t') {
-      out += ' ';
-    } else if (static_cast<uint8_t>(c) >= 32) {
-      out += c;
-    }
-  }
-  return out;
-}
-
-static void kcxWsLine(const char* line) {
-  if (!line || !line[0]) return;
-  if (websocket.count() == 0) return;
-
-  const bool bypassRateLimit = (line[0] == '>' || strncmp(line, "ERR", 3) == 0);
-  if (!bypassRateLimit) {
-    uint32_t now = millis();
-    if (static_cast<int32_t>(now - g_kcxLastWsLineMs) < KCX_BT_WS_RATE_LIMIT_MS) {
-      return;
-    }
-    g_kcxLastWsLineMs = now;
-  }
-
-  String payload = "{\"btline\":\"";
-  payload += escapeJsonString(line);
-  payload += "\"}";
-  websocket.textAll(payload);
-}
-
-static void kcxHandleConnectPulse() {
-  if (!g_kcxConnectPulseActive) return;
-  if (static_cast<int32_t>(millis() - g_kcxConnectPulseAtMs) < KCX_BT_CONNECT_PULSE_MS) return;
-
-  digitalWrite(KCX_BT_CONNECT, HIGH);
-  g_kcxConnectPulseActive = false;
-}
-
-static void kcxBeginBackend() {
-  if (!kcxConfigured()) return;
-  if (g_kcxReady) return;
-
-  if (KCX_BT_CONNECT >= 0) {
-    pinMode(KCX_BT_CONNECT, OUTPUT);
-    digitalWrite(KCX_BT_CONNECT, HIGH);
-  }
-  if (KCX_BT_MODE >= 0) {
-    pinMode(KCX_BT_MODE, OUTPUT);
-    digitalWrite(KCX_BT_MODE, HIGH);
-  }
-  if (KCX_BT_LINK >= 0) {
-    pinMode(KCX_BT_LINK, INPUT_PULLUP);
-    g_kcxLastLink = digitalRead(KCX_BT_LINK);
-  }
-
-  Serial2.begin(KCX_BT_BAUD, SERIAL_8N1, KCX_BT_RX, KCX_BT_TX);
-  while (Serial2.available()) (void)Serial2.read();
-
-  g_kcxRxLen = 0;
-  g_kcxReady = true;
-  kcxWsLine("STATE KCX=READY");
-#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
-  kcxScheduleStartupVolume(KCX_BT_STARTUP_VOL_INITIAL_DELAY_MS);
-#endif
-  if (KCX_BT_MODE >= 0) {
-    kcxWsLine("STATE MODE=TX");
-  } else {
-    kcxWsLine("STATE MODE=HW");
-  }
-  if (KCX_BT_LINK >= 0) {
-    if (g_kcxLastLink) {
-      kcxWsLine("Status -> Connected");
-    } else {
-      kcxWsLine("Status -> Disconnected");
-    }
-  }
-}
-
-static void kcxSetMode(bool txMode) {
-  if (KCX_BT_MODE < 0) {
-    kcxWsLine("ERR MODE pin not configured");
-    return;
-  }
-
-  digitalWrite(KCX_BT_MODE, txMode ? HIGH : LOW);
-  kcxWsLine(txMode ? "STATE MODE=TX" : "STATE MODE=RX");
-  // Same idea as author's library: apply mode pin change and reset module.
-  kcxSendCommand("AT+RESET");
-}
-
-static void kcxPulseConnect() {
-  if (KCX_BT_CONNECT < 0) {
-    kcxWsLine("ERR CONNECT pin not configured");
-    return;
-  }
-
-  if (g_kcxConnectPulseActive) {
-    return;
-  }
-  digitalWrite(KCX_BT_CONNECT, LOW);
-  g_kcxConnectPulseActive = true;
-  g_kcxConnectPulseAtMs = millis();
-  kcxWsLine("STATE CONNECT=PULSE");
-#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
-  // Waking from POWER_OFF may restore module defaults; re-apply desired startup volume.
-  kcxScheduleStartupVolume(KCX_BT_STARTUP_VOL_AFTER_CONNECT_DELAY_MS);
-#endif
-}
-
-static void kcxSendCommand(const char* cmd) {
-  if (!g_kcxReady || !cmd) return;
-
-  String line(cmd);
-  line.trim();
-  if (!line.length()) return;
-
-  Serial2.print(line);
-  Serial2.print("\r\n");
-
-  String tx = ">> ";
-  tx += line;
-  kcxWsLine(tx.c_str());
-}
-
-static void kcxLoopBackend() {
-  if (!g_kcxReady) return;
-
-  kcxHandleConnectPulse();
-
-#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
-  if (g_kcxStartupVolPending && static_cast<int32_t>(millis() - g_kcxStartupVolNextTryMs) >= 0) {
-    char volCmd[16];
-    snprintf(volCmd, sizeof(volCmd), "AT+VOL=%02d", KCX_BT_STARTUP_VOL);
-    kcxSendCommand(volCmd);
-
-    g_kcxStartupVolAttempts++;
-    if (g_kcxStartupVolAttempts >= KCX_BT_STARTUP_VOL_MAX_ATTEMPTS) {
-      g_kcxStartupVolPending = false;
-    } else {
-      g_kcxStartupVolNextTryMs = millis() + KCX_BT_STARTUP_VOL_RETRY_DELAY_MS;
-    }
-  }
-#endif
-
-  if (KCX_BT_LINK >= 0) {
-    int8_t linkNow = digitalRead(KCX_BT_LINK);
-    if (linkNow != g_kcxLastLink) {
-      g_kcxLastLink = linkNow;
-      if (linkNow) kcxWsLine("Status -> Connected");
-      else kcxWsLine("Status -> Disconnected");
-    }
-  }
-
-  size_t budget = KCX_BT_RX_BUDGET_PER_LOOP;
-  while (budget-- > 0 && Serial2.available()) {
-    int ch = Serial2.read();
-    if (ch < 0) break;
-    if (ch == '\r') continue;
-    if (ch == '\n') {
-      if (g_kcxRxLen > 0) {
-        g_kcxRxBuf[g_kcxRxLen] = '\0';
-#if KCX_BT_STARTUP_VOL >= 0 && KCX_BT_STARTUP_VOL <= 31
-        if (strncmp(g_kcxRxBuf, "OK+VOL=", 7) == 0) {
-          const int currentVol = atoi(g_kcxRxBuf + 7);
-          if (currentVol == KCX_BT_STARTUP_VOL) {
-            g_kcxStartupVolPending = false;
-          } else if (g_kcxStartupVolAttempts < KCX_BT_STARTUP_VOL_MAX_ATTEMPTS) {
-            g_kcxStartupVolPending = true;
-            g_kcxStartupVolNextTryMs = millis() + KCX_BT_STARTUP_VOL_RETRY_DELAY_MS;
-          } else {
-            g_kcxStartupVolPending = false;
-          }
-        }
-#endif
-        kcxWsLine(g_kcxRxBuf);
-        g_kcxRxLen = 0;
-      }
-      continue;
-    }
-    if (ch < 32 || ch > 126) continue;
-    if (g_kcxRxLen < sizeof(g_kcxRxBuf) - 1) {
-      g_kcxRxBuf[g_kcxRxLen++] = static_cast<char>(ch);
-    }
-  }
-}
-
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
 void handleIndex(AsyncWebServerRequest *request);
 void handleNotFound(AsyncWebServerRequest *request);
@@ -304,9 +71,137 @@ static String   g_wifiScanCache = "[]";
 static uint32_t g_wifiScanCacheMs = 0;
 static bool     g_wifiScanRunning = false;
 static uint32_t g_wifiScanStartMs = 0;
+static uint32_t g_lastWsActivityMs = 0;
 static constexpr uint32_t WIFI_SCAN_CACHE_TTL_MS = 15000;
 static constexpr uint32_t WIFI_SCAN_MAX_WAIT_MS = 15000;
 static bool     g_webboardUploadHadError = false;
+
+#if IR_PIN != 255
+static bool parseIrCodeToken(const String &token, uint64_t &outValue) {
+  String normalized = token;
+  normalized.trim();
+  if (!normalized.length()) {
+    outValue = 0;
+    return true;
+  }
+
+  char *end = nullptr;
+  unsigned long long parsed = strtoull(normalized.c_str(), &end, 0);
+  if (end == normalized.c_str()) {
+    return false;
+  }
+  while (*end == ' ') {
+    ++end;
+  }
+  if (*end != '\0') {
+    return false;
+  }
+  outValue = static_cast<uint64_t>(parsed);
+  return true;
+}
+
+static int splitSimpleCsvLine(const String &line, String tokens[], int maxTokens) {
+  int tokenCount = 0;
+  int start = 0;
+  for (int i = 0; i <= static_cast<int>(line.length()) && tokenCount < maxTokens; i++) {
+    bool isDelimiter = (i == static_cast<int>(line.length())) || line[i] == ',' || line[i] == ';' || line[i] == '\t';
+    if (!isDelimiter) {
+      continue;
+    }
+    tokens[tokenCount] = line.substring(start, i);
+    tokens[tokenCount].trim();
+    tokenCount++;
+    start = i + 1;
+  }
+  return tokenCount;
+}
+
+static String buildIrCodesCsv() {
+  String out;
+  out.reserve(900);
+  out += "button,bank0,bank1,bank2\n";
+  char valBuf[32];
+  for (int btn = 0; btn < 20; btn++) {
+    out += String(btn);
+    for (int bank = 0; bank < 3; bank++) {
+      snprintf(valBuf, sizeof(valBuf), ",0x%llX", config.ircodes.irVals[btn][bank]);
+      out += valBuf;
+    }
+    out += "\n";
+  }
+  return out;
+}
+
+static bool importIrCodesCsv(const String &csv, String &error) {
+  ircodes_t imported = config.ircodes;
+  bool anyImported = false;
+  int pos = 0;
+
+  while (pos <= static_cast<int>(csv.length())) {
+    int lineEnd = csv.indexOf('\n', pos);
+    if (lineEnd < 0) {
+      lineEnd = csv.length();
+    }
+
+    String line = csv.substring(pos, lineEnd);
+    line.trim();
+    pos = lineEnd + 1;
+
+    if (!line.length()) {
+      continue;
+    }
+
+    String cols[4];
+    int colCount = splitSimpleCsvLine(line, cols, 4);
+    if (colCount < 4) {
+      if (!anyImported && (line.startsWith("button") || line.startsWith("Button"))) {
+        continue;
+      }
+      error = "invalid csv row";
+      return false;
+    }
+
+    char *btnEnd = nullptr;
+    long btnIdx = strtol(cols[0].c_str(), &btnEnd, 10);
+    if (btnEnd == cols[0].c_str() || *btnEnd != '\0') {
+      if (!anyImported && (cols[0].startsWith("button") || cols[0].startsWith("Button"))) {
+        continue;
+      }
+      error = "invalid button index";
+      return false;
+    }
+    if (btnIdx < 0 || btnIdx >= 20) {
+      error = "button index out of range";
+      return false;
+    }
+
+    for (int bank = 0; bank < 3; bank++) {
+      uint64_t parsed = 0;
+      if (!parseIrCodeToken(cols[bank + 1], parsed)) {
+        error = "invalid IR value";
+        return false;
+      }
+      // Repeat sentinel codes are not valid standalone mappings in runtime.
+      if (parsed == UINT64_MAX || parsed == 0xFFFFFFFFULL) {
+        parsed = 0;
+      }
+      imported.irVals[btnIdx][bank] = parsed;
+    }
+
+    anyImported = true;
+  }
+
+  if (!anyImported) {
+    error = "no IR rows found";
+    return false;
+  }
+
+  config.ircodes = imported;
+  config.saveIR();
+  netserver.irValsToWs();
+  return true;
+}
+#endif
 
 static bool isEmptyFsKnownPath(const String &url) {
   return url == "/" || url == "/webboard" || url == "/variables.js" || url == "/wifiscan" || url == "/favicon.ico" || url == "/emergency";
@@ -342,7 +237,7 @@ static bool shouldRedirectEmptyFsRequest(AsyncWebServerRequest *request) {
 
 static bool hasRequiredWebboardFiles() {
   const char *requiredWebFiles[] = {
-    "dragpl.js", "ir.css", "irrecord.html", "ir.js", "logo.svg", "options.html", "player.html", "script.js", "style.css", "updform.html", "theme.css", "theme-editor.html"
+    "dragpl.js", "ir.css", "irrecord.html", "ir.js", "logo.svg", "options.html", "player.html", "script.js", "style.css", "updform.html", "theme.css", "theme-editor.html", "volcurve.html"
   };
   const char *requiredFonts[] = {
     "roboto9.vlw", "roboto12.vlw", "roboto16.vlw", "roboto18.vlw", "roboto20.vlw", "roboto22.vlw", "roboto24.vlw", "roboto26.vlw", "roboto36.vlw"
@@ -522,6 +417,7 @@ bool NetServer::begin(bool quiet) {
   while (nsQueue == NULL) {
     ;
   }
+  btBridge.begin();
 
   webserver.on("/", HTTP_ANY, handleIndex);
   webserver.onNotFound(handleNotFound);
@@ -565,15 +461,31 @@ bool NetServer::begin(bool quiet) {
       return;
     }
 
+    if (!g_dlnaListRouteMux) {
+      g_dlnaListRouteMux = xSemaphoreCreateMutex();
+    }
+    if (!g_dlnaListRouteMux || xSemaphoreTake(g_dlnaListRouteMux, pdMS_TO_TICKS(250)) != pdTRUE) {
+      request->send(429, "application/json", "{\"ok\":false,\"error\":\"DLNA list busy\"}");
+      return;
+    }
+
+    if (dlna_isBusy()) {
+      xSemaphoreGive(g_dlnaListRouteMux);
+      request->send(429, "application/json", "{\"ok\":false,\"error\":\"DLNA worker busy\"}");
+      return;
+    }
+
     String objectId = request->getParam("objectId")->value();
     uint32_t start = request->hasParam("start") ? request->getParam("start")->value().toInt() : 0;
+    String controlUrl = g_dlnaControlUrl;
 
     String json;
 
     DlnaIndex idx;
-    bool ok = idx.listContainer(g_dlnaControlUrl, objectId, json, start);
+    bool ok = idx.listContainer(controlUrl, objectId, json, start);
 
     if (!ok) {
+      xSemaphoreGive(g_dlnaListRouteMux);
       request->send(500, "application/json", "{\"ok\":false,\"error\":\"Browse failed\"}");
       return;
     }
@@ -581,6 +493,7 @@ bool NetServer::begin(bool quiet) {
     AsyncWebServerResponse *r = request->beginResponse(200, "application/json", json);
     r->addHeader("Cache-Control", "no-store");
     request->send(r);
+    xSemaphoreGive(g_dlnaListRouteMux);
   });
 
   /* ================= DLNA BUILD ================= */
@@ -916,9 +829,134 @@ bool NetServer::begin(bool quiet) {
     request->send(response);
   });
 
+#if IR_PIN != 255
+  webserver.on("/ircodes.csv", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/csv", buildIrCodesCsv());
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response->addHeader("Pragma", "no-cache");
+    response->addHeader("Content-Disposition", "attachment; filename=\"ircodes.csv\"");
+    request->send(response);
+  });
+
+  webserver.on(
+    "/ircodes.csv", HTTP_POST,
+    [](AsyncWebServerRequest *request) {
+      if (!request->_tempFile) {
+        request->send(400, "application/json", "{\"error\":\"csv body missing\"}");
+        return;
+      }
+
+      request->_tempFile.close();
+      File file = LittleFS.open(TMP_PATH, "r");
+      if (!file) {
+        request->send(500, "application/json", "{\"error\":\"cannot read uploaded csv\"}");
+        return;
+      }
+
+      String csv;
+      csv.reserve(file.size() + 1);
+      while (file.available()) {
+        csv += file.readStringUntil('\n');
+        csv += '\n';
+      }
+      file.close();
+      LittleFS.remove(TMP_PATH);
+
+      String err;
+      if (!importIrCodesCsv(csv, err)) {
+        request->send(400, "application/json", "{\"error\":\"" + err + "\"}");
+        return;
+      }
+
+      request->send(200, "application/json", "{\"ok\":true}");
+    },
+    nullptr,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      if (index == 0) {
+        if (LittleFS.exists(TMP_PATH)) {
+          LittleFS.remove(TMP_PATH);
+        }
+        request->_tempFile = LittleFS.open(TMP_PATH, "w");
+      }
+
+      if (request->_tempFile && len > 0) {
+        request->_tempFile.write(data, len);
+      }
+
+      if (index + len == total && request->_tempFile) {
+        request->_tempFile.flush();
+      }
+    }
+  );
+#endif
+
+  webserver.on("/volcurve.csv", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/csv", config.volumeCurveToCsv());
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response->addHeader("Pragma", "no-cache");
+    response->addHeader("Content-Disposition", "attachment; filename=\"volcurve.csv\"");
+    request->send(response);
+  });
+
+  webserver.on(
+    "/volcurve.csv", HTTP_POST,
+    [](AsyncWebServerRequest *request) {
+      if (!request->_tempFile) {
+        request->send(400, "application/json", "{\"error\":\"csv body missing\"}");
+        return;
+      }
+
+      request->_tempFile.close();
+      File file = LittleFS.open(TMP_PATH, "r");
+      if (!file) {
+        request->send(500, "application/json", "{\"error\":\"cannot read uploaded csv\"}");
+        return;
+      }
+
+      String csv;
+      csv.reserve(file.size() + 1);
+      while (file.available()) {
+        csv += file.readStringUntil('\n');
+        csv += '\n';
+      }
+      file.close();
+      LittleFS.remove(TMP_PATH);
+
+      String importError;
+      if (!config.applyVolumeCurveCsv(csv.c_str(), &importError)) {
+        if (!importError.length()) {
+          importError = "invalid volume curve csv";
+        }
+        importError.replace("\\", "\\\\");
+        importError.replace("\"", "\\\"");
+        request->send(400, "application/json", "{\"error\":\"" + importError + "\"}");
+        return;
+      }
+
+      config.saveVolumeCurveToFile();
+      request->send(200, "application/json", "{\"ok\":true}");
+    },
+    nullptr,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      if (index == 0) {
+        if (LittleFS.exists(TMP_PATH)) {
+          LittleFS.remove(TMP_PATH);
+        }
+        request->_tempFile = LittleFS.open(TMP_PATH, "w");
+      }
+
+      if (request->_tempFile && len > 0) {
+        request->_tempFile.write(data, len);
+      }
+
+      if (index + len == total && request->_tempFile) {
+        request->_tempFile.flush();
+      }
+    }
+  );
+
   webserver.serveStatic("/", LittleFS, "/www/");
   webserver.begin();
-  kcxBeginBackend();
 
   //if(strlen(config.store.mdnsname)>0)
   //  MDNS.begin(config.store.mdnsname);
@@ -961,7 +999,6 @@ size_t NetServer::chunkedHtmlPageCallback(uint8_t *buffer, size_t maxLen, size_t
 #endif
   size_t canread = (needread > maxLen) ? maxLen : needread;
   DBGVB("[%s] seek to %d in %s and read %d bytes with maxLen=%d", __func__, index, netserver.chunkedPathBuffer, canread, maxLen);
-  //netserver.loop();
   requiredfile.seek(index, SeekSet);
   requiredfile.read(buffer, canread);
   index += canread;
@@ -1273,6 +1310,18 @@ void NetServer::processQueue() {
         );
         break;
       case BALANCE: sprintf(wsBuf, "{\"payload\":[{\"id\": \"balance\", \"value\": %d}]}", config.store.balance); break;
+      case GETVOLCURVE:
+      {
+        wsBuf[0] = '\0';
+        strcat(wsBuf, "{\"payload\":[");
+        for (int i = 1; i <= 21; i++) {
+          char item[48];
+          snprintf(item, sizeof(item), "{\"id\":\"vc%d\",\"value\":%d}%s", i, (int)player.getVolumeCurveDbPoint(i), (i < 21) ? "," : "");
+          strcat(wsBuf, item);
+        }
+        strcat(wsBuf, "]}");
+        break;
+      }
       case SDINIT:  sprintf(wsBuf, "{\"sdinit\": %d}", SDC_CS != 255); break;
       case GETPLAYERMODE:
       {  //DLNA mod
@@ -1334,8 +1383,8 @@ void NetServer::loop() {
     delay(100);
     ESP.restart();
   }
+  btBridge.loop();
   processQueue();
-  kcxLoopBackend();
   updateWifiScanCache();
   websocket.cleanupClients();
   switch (importRequest) {
@@ -1350,26 +1399,17 @@ void NetServer::loop() {
     default: break;
   }
   static uint32_t lastPing = 0;
-
-if (millis() - lastPing > 5000) {  // 5 mp
+  if (websocket.count() > 0 && (millis() - lastPing > 30000)) {  // 30 mp
     lastPing = millis();
+    websocket.textAll("{\"ping\":1}");
+  }
 
-    if (websocket.count() > 0) {
-        websocket.textAll("{\"ping\":1}");
-    }
-}
-static uint32_t lastWsActivity = 0;
-
-// ha van kliens, frissítjük az aktivitást
-if (websocket.count() > 0) {
-    lastWsActivity = millis();
-}
-
-// ha 15 mp óta nincs aktivitás → zárjuk
-if (millis() - lastWsActivity > 15000 && websocket.count() > 0) {
-    Serial.println("[WS] Force reconnect");
-    websocket.closeAll();
-}
+  // Do not force-close websocket clients on temporary loop stalls.
+  // AsyncWebSocket handles ping/pong and client cleanup internally.
+  if (websocket.count() > 0 && g_lastWsActivityMs != 0 && (millis() - g_lastWsActivityMs > 120000)) {
+    g_lastWsActivityMs = millis();
+    Serial.println("[WS] No WS data for 120s (keeping clients connected)");
+  }
 
 }
 
@@ -1396,63 +1436,13 @@ void NetServer::irValsToWs() {
 void NetServer::onWsMessage(void *arg, uint8_t *data, size_t len, uint8_t clientId) {
   AwsFrameInfo *info = (AwsFrameInfo *)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-    data[len] = 0;
-    if (config.parseWsCommand((const char *)data, _wscmd, _wsval, 65)) {
-      if (strcmp(_wscmd, "btcmd") == 0) {
-        if (!kcxConfigured()) {
-          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
-          return;
-        }
-        if (!g_kcxReady) {
-          kcxBeginBackend();
-        }
-        kcxSendCommand(_wsval);
-        return;
-      }
-      if (strcmp(_wscmd, "btvol") == 0) {
-        if (!kcxConfigured()) {
-          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
-          return;
-        }
-        if (!g_kcxReady) {
-          kcxBeginBackend();
-        }
-        int vol = atoi(_wsval);
-        if (vol < 0) vol = 0;
-        if (vol > 31) vol = 31;
-        char volCmd[16];
-        snprintf(volCmd, sizeof(volCmd), "AT+VOL=%02d", vol);
-        kcxSendCommand(volCmd);
-        return;
-      }
-      if (strcmp(_wscmd, "btmode") == 0) {
-        if (!kcxConfigured()) {
-          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
-          return;
-        }
-        if (!g_kcxReady) {
-          kcxBeginBackend();
-        }
-        if (strcasecmp(_wsval, "TX") == 0) {
-          kcxSetMode(true);
-        } else if (strcasecmp(_wsval, "RX") == 0) {
-          kcxSetMode(false);
-        } else {
-          kcxWsLine("ERR btmode expects TX or RX");
-        }
-        return;
-      }
-      if (strcmp(_wscmd, "btconnect") == 0) {
-        if (!kcxConfigured()) {
-          websocket.text(clientId, "{\"btline\":\"KCX pins not configured\"}");
-          return;
-        }
-        if (!g_kcxReady) {
-          kcxBeginBackend();
-        }
-        kcxPulseConnect();
-        return;
-      }
+    // Copy to a bounded local buffer so we never write past the incoming frame memory.
+    char wsMsg[129];
+    const size_t copyLen = (len < (sizeof(wsMsg) - 1)) ? len : (sizeof(wsMsg) - 1);
+    memcpy(wsMsg, data, copyLen);
+    wsMsg[copyLen] = '\0';
+
+    if (config.parseWsCommand(wsMsg, _wscmd, _wsval, 65)) {
       if (strcmp(_wscmd, "ping") == 0) {
         websocket.text(clientId, "{\"pong\": 1}");
         return;
@@ -1559,19 +1549,19 @@ bool NetServer::importPlaylist() {
   char linePl[BUFLEN * 3];
   int sOvol;
   _readPlaylistLine(tempfile, linePl, sizeof(linePl) - 1);
-  if (config.parseCSV(linePl, nsBuf, nsBuf2, sOvol)) {
+  if (config.parseCSV(linePl, nsBuf, sizeof(nsBuf), nsBuf2, sizeof(nsBuf2), sOvol)) {
     tempfile.close();
     LittleFS.rename(TMP_PATH, PLAYLIST_PATH);
     requestOnChange(PLAYLISTSAVED, 0);
     return true;
   }
-  if (config.parseJSON(linePl, nsBuf, nsBuf2, sOvol)) {
+  if (config.parseJSON(linePl, nsBuf, sizeof(nsBuf), nsBuf2, sizeof(nsBuf2), sOvol)) {
     File playlistfile = LittleFS.open(PLAYLIST_PATH, "w");
     snprintf(linePl, sizeof(linePl) - 1, "%s\t%s\t%d", nsBuf, nsBuf2, 0);
     playlistfile.println(linePl);
     while (tempfile.available()) {
       _readPlaylistLine(tempfile, linePl, sizeof(linePl) - 1);
-      if (config.parseJSON(linePl, nsBuf, nsBuf2, sOvol)) {
+      if (config.parseJSON(linePl, nsBuf, sizeof(nsBuf), nsBuf2, sizeof(nsBuf2), sOvol)) {
         snprintf(linePl, sizeof(linePl) - 1, "%s\t%s\t%d", nsBuf, nsBuf2, 0);
         playlistfile.println(linePl);
       }
@@ -1681,7 +1671,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
       if (!LittleFS.exists("/www")) {
         LittleFS.mkdir("/www");
       }
-      if (lowerFilename == "playlist.csv" || lowerFilename == "wifi.csv") {
+      if (lowerFilename == "playlist.csv" || lowerFilename == "wifi.csv" || lowerFilename == "volcurve.csv") {
         spath = "/data/";
         if (!LittleFS.exists("/data")) {
           LittleFS.mkdir("/data");
@@ -1714,6 +1704,8 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
       request->_tempFile.close();
       if (lowerFilename == "playlist.csv") {
         config.indexPlaylist();
+      } else if (lowerFilename == "volcurve.csv") {
+        config.loadVolumeCurveFromFile();
       }
     }
   }
@@ -1722,6 +1714,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch (type) {
     case WS_EVT_CONNECT: /*netserver.requestOnChange(STARTUP, client->id()); */
+      g_lastWsActivityMs = millis();
       if (config.store.audioinfo) {
         Serial.printf("[WEBSOCKET] client #%lu connected from %s\n", client->id(), config.ipToStr(client->remoteIP()));
       }
@@ -1731,7 +1724,10 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
         Serial.printf("[WEBSOCKET] client #%lu disconnected\n", client->id());
       }
       break;
-    case WS_EVT_DATA:  netserver.onWsMessage(arg, data, len, client->id()); break;
+    case WS_EVT_DATA:
+      g_lastWsActivityMs = millis();
+      netserver.onWsMessage(arg, data, len, client->id());
+      break;
     case WS_EVT_PONG:
     case WS_EVT_ERROR: break;
   }
@@ -1802,7 +1798,7 @@ void handleNotFound(AsyncWebServerRequest *request) {
     if (
       strcmp(request->url().c_str(), PLAYLIST_PATH) == 0 || strcmp(request->url().c_str(), SSIDS_PATH) == 0 || strcmp(request->url().c_str(), INDEX_PATH) == 0
       || strcmp(request->url().c_str(), TMP_PATH) == 0 || strcmp(request->url().c_str(), PLAYLIST_SD_PATH) == 0
-      || strcmp(request->url().c_str(), INDEX_SD_PATH) == 0
+      || strcmp(request->url().c_str(), INDEX_SD_PATH) == 0 || strcmp(request->url().c_str(), VOLCURVE_PATH) == 0
 #ifdef USE_DLNA  //DLNA mod
       || strcmp(request->url().c_str(), PLAYLIST_DLNA_PATH) == 0 || strcmp(request->url().c_str(), INDEX_DLNA_PATH) == 0
 #endif
@@ -1879,8 +1875,7 @@ void handleNotFound(AsyncWebServerRequest *request) {
       "var formAction='%s';\n"
       "var playMode='%s';\n"
       "var isStaConnected=%d;\n"
-      "var dlnaSupported=%d;\n"
-      "var btSupported=%d;\n",
+      "var dlnaSupported=%d;\n",
       FW_VERSION, (network.status == CONNECTED && !config.emptyFS) ? "webboard" : "", (network.status == CONNECTED) ? "player" : "ap",
       (network.status == CONNECTED) ? 1 : 0,
 #ifdef USE_DLNA
@@ -1888,9 +1883,16 @@ void handleNotFound(AsyncWebServerRequest *request) {
 #else
       0
 #endif
-      ,
-      (KCX_BT_RX >= 0 && KCX_BT_TX >= 0) ? 1 : 0
     );
+        snprintf(
+      netserver.nsBuf + strlen(netserver.nsBuf), sizeof(netserver.nsBuf) - strlen(netserver.nsBuf),
+      "var btSupported=%d;\n",
+    #ifdef USE_BT_BRIDGE
+      1
+    #else
+      0
+    #endif
+        );
       AsyncWebServerResponse *response = request->beginResponse(200, "application/javascript", netserver.nsBuf);
       response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
       response->addHeader("Pragma", "no-cache");

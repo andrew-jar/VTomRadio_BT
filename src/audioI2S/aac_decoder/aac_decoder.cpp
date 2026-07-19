@@ -2,7 +2,7 @@
  *  aac_decoder.cpp
  *  faad2 - ESP32 adaptation
  *  Created on: 12.09.2023
- *  Updated on: 23.04.2026
+ *  Updated on: 16.07.2026
  */
 
 #include "aac_decoder.h"
@@ -21,15 +21,14 @@ AACDecoder::AACDecoder(Audio& audioRef) : Decoder(audioRef), audio(audioRef), m_
 bool AACDecoder::init() {
     m_hAac = m_neaacdec->NeAACDecOpen();
     m_conf = m_neaacdec->NeAACDecGetCurrentConfiguration(m_hAac);
-    m_out16.alloc_array(4608 * 2, "m_out16");
+    if (m_conf) { m_conf->outputFormat = FAAD_FMT_32BIT; }
 
-    if (m_hAac && m_out16.valid()) m_f_decoderIsInit = true;
+    if (m_hAac && m_conf) m_f_decoderIsInit = true;
     m_f_firstCall = false;
     m_f_setRaWBlockParams = false;
     return m_f_decoderIsInit;
 }
 void AACDecoder::clear() {
-    m_out16.clear();
     return; // nothing todo
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -38,7 +37,6 @@ void AACDecoder::reset() {
     m_hAac = NULL;
     m_f_decoderIsInit = false;
     m_f_firstCall = false;
-    m_out16.reset();
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 bool AACDecoder::isValid() {
@@ -97,7 +95,7 @@ uint32_t AACDecoder::getOutputSamples() {
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 uint8_t AACDecoder::getBitsPerSample() {
-    return 16;
+    return 32;
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 uint32_t AACDecoder::getBitRate() {
@@ -122,18 +120,18 @@ const char* AACDecoder::whoIsIt() {
     return "AAC";
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-const char* AACDecoder::getErrorMessage(int8_t err) {
+error_info_t AACDecoder::getErrorMessage(int8_t err) {
     return m_neaacdec->NeAACDecGetErrorMessage(abs(err));
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 int32_t AACDecoder::decode(uint8_t* inbuf, int32_t* bytesLeft, int32_t* outbuf) {
 
-    uint8_t* ob = (uint8_t*)m_out16.get();
+    void*    sample_buffer = outbuf;
     if (m_f_firstCall == false) {
         if (m_f_setRaWBlockParams) { // set raw AAC values, e.g. for M4A config.
             m_f_setRaWBlockParams = false;
             m_conf->defSampleRate = m_aacSamplerate;
-            m_conf->outputFormat = FAAD_FMT_16BIT;
+            m_conf->outputFormat = FAAD_FMT_32BIT;
             m_conf->useOldADTSFormat = 1;
             m_conf->defObjectType = 2;
             int8_t ret = m_neaacdec->NeAACDecSetConfiguration(m_hAac, m_conf);
@@ -151,30 +149,21 @@ int32_t AACDecoder::decode(uint8_t* inbuf, int32_t* bytesLeft, int32_t* outbuf) 
         m_f_firstCall = true;
     }
 
-    m_neaacdec->NeAACDecDecode2(m_hAac, &m_frameInfo, inbuf, *bytesLeft, (void**)&ob, 2048 * 2 * sizeof(int16_t));
+    m_neaacdec->NeAACDecDecode2(m_hAac, &m_frameInfo, inbuf, *bytesLeft, &sample_buffer, 4608 * 2 * sizeof(int32_t));
     *bytesLeft -= m_frameInfo.bytesconsumed;
     m_validSamples = m_frameInfo.samples;
     int8_t err = 0 - m_frameInfo.error;
     m_compressionRatio = (float)m_frameInfo.samples * 2 / m_frameInfo.bytesconsumed;
     if (err < 0) {
         if (err == -100) return AAC_ID3_HDR; // ID3 header found
-        if (err == -21) {
-            AAC_LOG_INFO("%s", getErrorMessage(abs(err)));
-        } else {
-            AAC_LOG_ERROR("%s", getErrorMessage(abs(err)));
+        else{
+            if(getErrorMessage(abs(err)).level == AAC_ERROR) AAC_LOG_ERROR("{}", getErrorMessage(abs(err)).text);
+            if(getErrorMessage(abs(err)).level == AAC_WARN) AAC_LOG_WARN("{}", getErrorMessage(abs(err)).text);
+            if(getErrorMessage(abs(err)).level == AAC_INFO) AAC_LOG_INFO("{}", getErrorMessage(abs(err)).text);
+            if(getErrorMessage(abs(err)).level == AAC_DEBUG) AAC_LOG_DEBUG("{}", getErrorMessage(abs(err)).text);
+            if(getErrorMessage(abs(err)).level == AAC_VERBOSE) AAC_LOG_VERBOSE("{}", getErrorMessage(abs(err)).text);
         }
     } else {
-
-        if (m_aacChannels == 1) {
-            for (int i = 0; i < m_validSamples; i++) {
-                outbuf[i * 2] = m_out16[i] << 16;
-                outbuf[i * 2 + 1] = m_out16[i] << 16;
-            }
-        }
-
-        if (m_aacChannels == 2) {
-            for (int i = 0; i < m_validSamples * 2; i++) { outbuf[i] = m_out16[i] << 16; }
-        }
     }
     return err;
 }

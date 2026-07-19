@@ -8,6 +8,7 @@
 #include "clock_tts.h"
 #include "controls.h"
 #include "fonts.h"
+#include "btbridge.h"
 //#include "../displays/display_select.h"
 #include "../plugins/backlight/backlight.h"
 
@@ -84,7 +85,21 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
         int id = atoi(value);
         if (id < 1) { id = 1; }
         uint16_t cs = config.playlistLength();
-        if (id > cs) { id = cs; }
+
+#ifdef USE_DLNA
+        // DLNA index can be missing right after (re)build or source switch.
+        if (cs == 0 && config.getMode() == PM_WEB && config.store.playlistSource == PL_SRC_DLNA) {
+            config.initDLNAPlaylist();
+            cs = config.playlistLength();
+        }
+#endif
+
+        if (cs == 0) {
+            Serial.println("[PLAY] playlist index empty, ignoring play request");
+            return false;
+        }
+
+        if (id > (int)cs) { id = cs; }
         player.sendCommand({PR_PLAY, id});
         return true;
     }
@@ -103,6 +118,14 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
         config.store.brightness = (uint8_t)(d < 0 ? 0 : (d > 100 ? 100 : d));
         config.setBrightness(true);
         return true;
+    }
+
+    if (strEquals(command, "btcmd") || strEquals(command, "bt") || strEquals(command, "btsend")) {
+        return btBridge.sendLine(value, cid);
+    }
+
+    if (strEquals(command, "getbluetooth") || strEquals(command, "btstatus")) {
+        return btBridge.requestStatus(cid);
     }
 
     if (strEquals(command, "clearspiffs")) {
@@ -142,6 +165,57 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
         netserver.requestOnChange(GETACTIVE, cid);
         return true;
     }
+    if (strEquals(command, "getvolcurve")) {
+        netserver.requestOnChange(GETVOLCURVE, cid);
+        return true;
+    }
+
+    if (strncmp(command, "vcurve", 6) == 0) {
+        int idx = atoi(command + 6);
+        if (idx >= 1 && idx <= 21) {
+            float db = atof(value);
+            int dbInt = (int)db;
+            if (dbInt < -60) dbInt = -60;
+            if (dbInt > 0) dbInt = 0;
+
+            // Keep manual slider edits monotonic: current point cannot go below the previous one,
+            // and lower rows are pulled up as needed.
+            if (idx > 1 && dbInt < config.store.volumeCurveDb[idx - 2]) {
+                dbInt = config.store.volumeCurveDb[idx - 2];
+            }
+
+            bool   changed = false;
+            int8_t prev = static_cast<int8_t>(dbInt);
+
+            if (config.store.volumeCurveDb[idx - 1] != prev) {
+                config.saveValue(&config.store.volumeCurveDb[idx - 1], prev);
+                changed = true;
+            }
+
+            for (int i = idx; i < 21; ++i) {
+                int8_t cur = config.store.volumeCurveDb[i];
+                if (cur < prev) {
+                    cur = prev;
+                    config.saveValue(&config.store.volumeCurveDb[i], cur);
+                    changed = true;
+                }
+                prev = cur;
+            }
+
+            if (changed) {
+                float lut[22];
+                lut[0] = -60.0f;
+                for (int i = 1; i <= 21; ++i) {
+                    lut[i] = (float)config.store.volumeCurveDb[i - 1];
+                }
+                player.setVolumeCurveDbLut(lut, 22);
+            }
+
+            netserver.requestOnChange(GETVOLCURVE, cid);
+            return true;
+        }
+    }
+
     if (strEquals(command, "newmode")) {
         config.newConfigMode = atoi(value);
         netserver.requestOnChange(CHANGEMODE, cid);
@@ -420,8 +494,6 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
     if (strEquals(command, "rssiastext")) {
         config.saveValue(&config.store.rssiAsText, static_cast<bool>(atoi(value)));
         display.putRequest(SHOWRSSIMODE);
-        // Force immediate bottom-bar redraw so BT icon/box switches without waiting for periodic RSSI tick.
-        display.putRequest(DSPRSSI, WiFi.RSSI());
         return true;
     }
     if (strEquals(command, "lat")) {

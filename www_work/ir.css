@@ -1,0 +1,324 @@
+﻿#irform .hidden {
+  display: none;
+}
+
+.playerwrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#irremote {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 10px;
+}
+
+.irwrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.irbutton {
+  width: 100%;
+  height: 50px;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--main-hl-color);
+}
+
+.irbutton.power {
+grid-column: span 2;
+}
+
+.irbutton svg {
+  width: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.irbutton.green {
+  background-color: #1f8f3a;
+  border-color: #2da54a;
+}
+
+.irbutton.yellow {
+  background-color: #caa300;
+  border-color: #e0b800;
+}
+
+.irbutton.blue {
+  background-color: #2648a9;
+  border-color: #3356ba;
+  color: var(--main-hl-color);
+}
+
+.irbutton.red {
+  background-color: #d31b20;
+  border-color: #e53a3e;
+  color: var(--main-hl-color);
+}
+
+.playstop {
+  grid-column: span 2;
+}
+
+.backbtn svg {
+  width:100%;
+  height:24px;
+  stroke: var(--main-hl-color);
+}
+
+.irbutton:hover,
+.irbutton:active,
+.irbutton.active {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--main-bg-color);
+}
+
+.irbutton:hover svg,
+.irbutton:active svg,
+.irbutton.active svg {
+  fill: var(--main-bg-color);
+}
+
+#irform {
+  flex: 1;
+  text-align: center;
+  padding-left: 20px;
+}
+
+#irstartrecord h3 {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--accent-color);
+}
+
+#irrecordtitle {
+  padding-left: 42px;
+}
+
+#irrecordtitle span {
+  background-color: var(--accent-color);
+  color: var(--main-bg-color);
+  width: 160px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Helvatica, Arial, Sans;
+  font-size: 18px;
+  margin-left: 8px;
+  border: var(--section-border) 2px solid;
+}
+
+#irrecordtitle span svg {
+  fill: var(--main-bg-color);
+  width: 16px;
+}
+
+.irrecordrow {
+  display: flex;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.irradio {
+  width: 42px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.irradio span {
+  position: relative;
+  height: 28px;
+  width: 28px;
+  background-color: var(--main-bg-color);
+  border-radius: 50%;
+  border: var(--accent-color) 2px solid;
+  margin: 4px 0;
+}
+
+.irradio span:hover {
+  background-color: var(--odd-bg-color);
+}
+
+.irradio.active span {
+  background-color: var(--odd-bg-color);
+}
+
+.irradio span:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.irradio.active span:after {
+  display: block;
+}
+
+.irradio span:after {
+  top: 6px;
+  left: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-color);
+}
+
+.irrecordvalue {
+  box-sizing: border-box;
+  background: var(--odd-bg-color);
+  color: var(--section-border);
+  padding: 0px 12px;
+  line-height: 36px;
+  height: 40px;
+  font-size: 20px;
+  border: var(--section-border) 2px solid;
+  border-radius: 10px;
+  font-weight: normal;
+  flex: 1;
+  overflow: hidden;
+  max-width: 212px;
+  text-align: center;
+}
+
+#protocol {
+  text-transform: uppercase;
+  line-height: 20px;
+  height: 20px;
+  padding-left: 40px;
+}
+
+.irrecordvalue.active {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.irtitle {
+  line-height: 48px;
+  margin: 5px 0;
+  text-align: center;
+  padding-top: 10px;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 26px;
+  color: var(--accent-color);
+  width: 100%;
+}
+
+#done_ir,
+#back_ir {
+  margin: 40px auto 0 auto;
+  max-width: 120px;
+  user-select: none;
+  display: block;
+}
+
+#back_ir {
+  margin-top: 20px;
+}
+
+#back_ir {
+  margin-left: calc(50% + 18px);
+  transform: translateX(-50%);
+}
+
+.ircsvactions {
+  width: 100%;
+  max-width: 480px;
+  margin: 10px auto 0 auto;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+#ir_export_csv,
+#ir_import_csv_label {
+  margin: 0;
+  min-width: 140px;
+  max-width: 180px;
+  width: 100%;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+#done_ir {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+#ir_import_csv {
+  display: none;
+}
+
+#ircsvstatus {
+  text-align: center;
+  min-height: 20px;
+  margin-top: 8px;
+  color: var(--section-border);
+}
+
+#ircsvstatus.success {
+  color: var(--accent-color);
+}
+
+#ircsvstatus.error {
+  color: #d31b20;
+}
+
+.irclear {
+  width: 22px;
+  height: 22px;
+  background: var(--odd-bg-color) url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMBAMAAACkW0HUAAAAFVBMVEUAAABUVFRUVFRUVFRUVFRUVFRUVFTyq8WEAAAABnRSTlMA9T3ruK3N/zxkAAAAOElEQVQI12NwVmBgYDJhMBNiYFBMZlBMVGASE2IAYiCLAcgFchiAXCAHSkEFoUqgGmDag0GGmQIAZPIIklXNC10AAAAASUVORK5CYII=') center center no-repeat;
+  border-radius: 50%;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+@media screen and (max-width: 480px) {
+  .ircsvactions {
+    gap: 8px;
+    padding: 0 10px;
+  }
+
+  #ir_export_csv,
+  #ir_import_csv_label {
+    min-width: 0;
+    font-size: 12px;
+    line-height: 36px;
+    height: 40px;
+  }
+
+  .irbutton {
+    width: 100%;
+    height: 40px;
+    font-size: 12px;
+    padding: 0 10px;
+  }
+
+  .irbutton.red {
+    width: 100%;
+    height: 40px;
+    font-size: 12px;
+     padding: 0 10px;
+    background-color: #d31b20;
+    border-color: #e53a3e;
+    color: var(--main-hl-color);
+  }
+}

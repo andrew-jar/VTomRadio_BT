@@ -229,12 +229,7 @@ void textBoxWidget::_draw() {
             break;
     }
 
-    if (_boxconf.fill) {
-        dsp.fillRect(_boxconf.left, _boxconf.top, _boxconf.width, _boxconf.height, _bgcolor);
-        _spr->pushSprite(_boxconf.left, _boxconf.top);
-    } else {
-        _spr->pushSprite(_boxconf.left, _boxconf.top);
-    }
+    _spr->pushSprite(_boxconf.left, _boxconf.top);
 
     strlcpy(_oldtext, _text, _buffsize);
 

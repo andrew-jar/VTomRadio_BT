@@ -38,9 +38,9 @@ const FillConfig   heapbarConf    PROGMEM = {{ TFT_FRAMEWDT, DSP_HEIGHT-2, 0, WA
 const textBoxConfig bootstrConf   PROGMEM = {60, 255, 360, 35, 20, WA_CENTER, 1, 4, true, 0, 0};  // Boot szöveg a boot oldalra, középre igazítva, kerettel és háttérrel.
 const textBoxConfig ipBoxConf     PROGMEM = {TFT_FRAMEWDT, 288, 150, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
 const textBoxConfig chBoxConf     PROGMEM = {290, 288, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
+const textBoxConfig btBoxConf     PROGMEM = {390, 261, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
+const ImageWidgetConfig btIconConf PROGMEM = { 390, 288, 30, 25 };
 const textBoxConfig rssiBoxConf   PROGMEM = {390, 288, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
-const textBoxConfig btBoxConf     PROGMEM = {390, 258, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
-const ImageWidgetConfig btIconConfFooter PROGMEM = {400, 288, 30, 25};
 
 /* WIDGETS  */ /* { left, top, fontsize, align } */
 const WidgetConfig numConf        PROGMEM = {0, 150, 70, WA_CENTER};  // hangerő állítás
@@ -50,7 +50,7 @@ const WidgetConfig apPassConf     PROGMEM = {TFT_FRAMEWDT, 173, 3, WA_CENTER}; /
 const WidgetConfig apPass2Conf    PROGMEM = {TFT_FRAMEWDT, 205, 3, WA_CENTER}; // AP mode
 const WidgetConfig bootWdtConf    PROGMEM = {0, 220, 1, WA_CENTER};  // Boot progress bar, középre igazítva, "align" nincs használva, mert a ProgressWidget nem használja ezt a paramétert.
 const WidgetConfig clockConf      PROGMEM = {10, 145, 2, WA_RIGHT,};
-const WidgetConfig dateConf       PROGMEM = { TFT_FRAMEWDT, 220, 1, WA_LEFT }; 
+const WidgetConfig dateConf       PROGMEM = { TFT_FRAMEWDT, 220, 20, WA_LEFT }; 
 
 // Speed, width, barwidth
 const ProgressConfig bootPrgConf  PROGMEM = {90, 14, 4};
@@ -65,7 +65,7 @@ const VolumeWidgetConfig volConf PROGMEM = {180, 288, 90, 25, 21, 2, 1, 8, 10, 1
 const WifiWidgetConfig wifiConf PROGMEM = {440, 288, 30, 25, "/images/wifi_1_30x25.png", "/images/wifi_2_30x25.png", "/images/wifi_3_30x25.png", "/images/wifi_4_30x25.png"};
 
 //left, top, textsize, align, border, radius, fill, paddingX, paddingY, dimension
-const BitrateBoxConfig bitrateConf PROGMEM = {10, 145, 20, WA_CENTER, 1, 4, true, 0, 0, 56};
+const BitrateBoxConfig bitrateConf PROGMEM = {TFT_FRAMEWDT, 145, 20, WA_CENTER, 1, 4, true, 0, 0, 56};
 
 /* left, top, textsize, width, onebandwidth (width), onebandheight (height), bandsHspace (space), bandsVspace (vspace), numofbands (perheight), fadespeed, labelwidth, labelheight} */
 #define VU_HAS_DUAL_CONF 1

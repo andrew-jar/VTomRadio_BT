@@ -78,6 +78,10 @@ public:
   void stepVol(bool up);
   void setVol(uint8_t volume);
   uint8_t volToI2S(uint8_t volume);
+  void setVolumeCurveDbLut(const float *dbValues, size_t count);
+  void setVolumeCurveDbPoint(uint8_t index, float dbValue);
+  float getVolumeCurveDbPoint(uint8_t index) const;
+  void resetVolumeCurveDbLut();
   void setTone(int8_t bass, int8_t mid, int8_t treble);
   void stopInfo();
   // Play arbitrary URL (used by presets). Executed in player task via queue.

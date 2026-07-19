@@ -19,6 +19,19 @@ int  lpId = -1;
 uint32_t wakeCheckUntil = 0;
 bool     waitingForWakeIr = false;
 
+#if IR_PIN != 255
+static uint32_t s_lastIrStationSwitchMs = 0;
+
+static inline bool irAllowPlayerStationSwitch() {
+    const uint32_t now = millis();
+    if ((uint32_t)(now - s_lastIrStationSwitchMs) < 120UL) {
+        return false;
+    }
+    s_lastIrStationSwitchMs = now;
+    return true;
+}
+#endif
+
 static inline void registerUserActivity() {
     config.screensaverTicks = 0;
     config.screensaverPlayingTicks = 0;
@@ -334,13 +347,13 @@ void irWakeup() {
             irrecv.enableIRIn();
             bool          valid = false;
             unsigned long start = millis();
-            unsigned long timeout = 1800; // wider window for reliable wake confirmation
+            unsigned long timeout = 800; // alap ablak
             while (millis() - start < timeout) {
                 if (irrecv.decode(&irResults)) {
                     uint32_t code = irResults.value;
                     // repeat → csak idő hosszabbítás
                     if (code == 0xFFFFFFFF) {
-                        timeout = 1800;
+                        timeout = 800;
                         irrecv.resume();
                         continue;
                     }
@@ -351,7 +364,6 @@ void irWakeup() {
                         break;
                     } else {
                         Serial.printf("Not POWER: 0x%lX\n", code);
-                        irrecv.resume();
                     }
                 }
             }
@@ -390,6 +402,13 @@ void irLoop() {
                     Serial.printf("controls.cpp--> irLoop--> xQueueReceive: update config.irBankId: %d \n", config.irBankId);
                 }
             }
+
+            // Do not record protocol repeat frames (e.g. NEC repeat), those are not usable as standalone button codes.
+            if (irResults.repeat || irResults.value == UINT64_MAX || irResults.value == 0xFFFFFFFFULL) {
+                irrecv.resume();
+                return;
+            }
+
             Serial.print(resultToHumanReadableBasic(&irResults));
             Serial.println("-------------------------------");
             config.ircodes.irVals[config.irBtnId][config.irBankId] = irResults.value;
@@ -453,6 +472,7 @@ void irLoop() {
                                 controlsEvent(true);
                                 break;
                             } else {
+                                if (display.mode() == PLAYER && !irAllowPlayerStationSwitch()) { break; }
                                 player.prev();
                             }
                             break;
@@ -462,6 +482,7 @@ void irLoop() {
                                 controlsEvent(false);
                                 break;
                             } else {
+                                if (display.mode() == PLAYER && !irAllowPlayerStationSwitch()) { break; }
                                 player.next();
                             }
                             break;

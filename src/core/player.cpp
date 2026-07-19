@@ -10,6 +10,45 @@
 #ifdef USE_NEXTION
   #include "../displays/nextion.h"
 #endif
+
+namespace {
+constexpr uint8_t VOLUME_CURVE_POINTS = 22;
+constexpr float   VOLUME_CURVE_MIN_DB = -60.0f;
+constexpr float   VOLUME_CURVE_MAX_DB = 0.0f;
+
+// Default 22-point user curve for volume steps 0..21 in dB.
+// Edit these values (or set them at runtime) to tailor perceived loudness.
+float g_volumeCurveDbLut[VOLUME_CURVE_POINTS] = {
+  -60.0f, -52.0f, -39.0f, -32.0f, -27.0f, -24.0f, -20.0f, -18.0f, -15.0f, -13.0f, -12.0f,
+  -10.0f, -9.0f, -8.0f, -6.0f, -5.0f, -4.0f, -4.0f, -3.0f, -2.0f, -2.0f, -1.0f};
+
+float clampCurveDb(float db) {
+  if (db < VOLUME_CURVE_MIN_DB) return VOLUME_CURVE_MIN_DB;
+  if (db > VOLUME_CURVE_MAX_DB) return VOLUME_CURVE_MAX_DB;
+  return db;
+}
+
+void clampCurveLut(float* lut, size_t n) {
+  if (!lut || n == 0) return;
+  for (size_t i = 0; i < n; ++i) {
+    lut[i] = clampCurveDb(lut[i]);
+  }
+}
+
+float playerVolumeCurveDb(float t) {
+  if (t <= 0.0f) return g_volumeCurveDbLut[0];
+  if (t >= 1.0f) return g_volumeCurveDbLut[VOLUME_CURVE_POINTS - 1];
+
+  float pos = t * (float)(VOLUME_CURVE_POINTS - 1);
+  uint8_t i = (uint8_t)pos;
+  if (i >= VOLUME_CURVE_POINTS - 1) return g_volumeCurveDbLut[VOLUME_CURVE_POINTS - 1];
+  float frac = pos - (float)i;
+  float a = g_volumeCurveDbLut[i];
+  float b = g_volumeCurveDbLut[i + 1];
+  return a + (b - a) * frac;
+}
+} // namespace
+
 Player player;
 QueueHandle_t playerQueue;
 
@@ -38,10 +77,19 @@ void Player::init() {
   #if !I2S_INTERNAL
   setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT, I2S_MCLK);
   #endif
+  setOutputSampleRate(PLAYER_FORCE_OUTPUT_48KHZ ? Audio::SR_48000 : Audio::SR_ORIGIN);
 #endif
   setBalance(-config.store.balance);  // "audio_change"   -16 to 16 fordítás 16 to -16
   setTone(config.store.bass, config.store.middle, config.store.trebble);
   setVolumeSteps(21);  // Alapértelmezetten 21, ami 0-21-ig terjedő értékeket engedélyez. Ez a változtatás lehetővé teszi a finomabb hangerőszabályozást, különösen alacsonyabb hangerőszinteken.
+  for (uint8_t i = 1; i <= 21; ++i) {
+    int db = (int)config.store.volumeCurveDb[i - 1];
+    if (db < -60) db = -60;
+    if (db > 0) db = 0;
+    g_volumeCurveDbLut[i] = (float)db;
+  }
+  clampCurveLut(g_volumeCurveDbLut, VOLUME_CURVE_POINTS);
+  setVolumeCurve(playerVolumeCurveDb);
   setVolume(0, 0);
   _status = STOPPED;
   _volTimer = false;
@@ -246,7 +294,7 @@ void Player::loop() {
 
         if (connecttohost(config.station.url)) {
           _status = PLAYING;
-          config.setTitle(LANG::const_PlConnect);
+          config.setTitle("");
           netserver.requestOnChange(MODE, 0);
           setOutputPins(true);
           display.putRequest(PSTART);
@@ -350,7 +398,6 @@ void Player::_play(uint16_t stationId) {
   // ----- START PLAYING -----
   if (isConnected) {
     _status = PLAYING;
-    config.setTitle(LANG::const_PlConnect);
     config.configPostPlaying(stationId);
     setOutputPins(true);
     if (player_on_start_play) player_on_start_play();
@@ -374,7 +421,7 @@ void Player::browseUrl() {
   config.setTitle(LANG::const_PlConnect);
   if (connecttohost(burl)) {
     _status = PLAYING;
-    config.setTitle(LANG::const_PlConnect);
+    config.setTitle("");
     netserver.requestOnChange(MODE, 0);
     setOutputPins(true);
     display.putRequest(PSTART);
@@ -465,6 +512,34 @@ uint8_t Player::volToI2S(uint8_t volume) {
     vol = 0;
   }
   return vol;
+}
+
+void Player::setVolumeCurveDbLut(const float *dbValues, size_t count) {
+  if (!dbValues || count != VOLUME_CURVE_POINTS) return;
+  for (size_t i = 0; i < VOLUME_CURVE_POINTS; ++i) {
+    g_volumeCurveDbLut[i] = dbValues[i];
+  }
+  clampCurveLut(g_volumeCurveDbLut, VOLUME_CURVE_POINTS);
+  setVolumeCurve(playerVolumeCurveDb);
+}
+
+void Player::setVolumeCurveDbPoint(uint8_t index, float dbValue) {
+  if (index >= VOLUME_CURVE_POINTS) return;
+  g_volumeCurveDbLut[index] = dbValue;
+  clampCurveLut(g_volumeCurveDbLut, VOLUME_CURVE_POINTS);
+  setVolumeCurve(playerVolumeCurveDb);
+}
+
+float Player::getVolumeCurveDbPoint(uint8_t index) const {
+  if (index >= VOLUME_CURVE_POINTS) return 0.0f;
+  return g_volumeCurveDbLut[index];
+}
+
+void Player::resetVolumeCurveDbLut() {
+  static const float kDefaultVolumeCurve[VOLUME_CURVE_POINTS] = {
+      -60.0f, -52.0f, -39.0f, -32.0f, -27.0f, -24.0f, -20.0f, -18.0f, -15.0f, -13.0f, -12.0f,
+      -10.0f, -9.0f, -8.0f, -6.0f, -5.0f, -4.0f, -4.0f, -3.0f, -2.0f, -2.0f, -1.0f};
+  setVolumeCurveDbLut(kDefaultVolumeCurve, VOLUME_CURVE_POINTS);
 }
 
 void Player::_loadVol() {

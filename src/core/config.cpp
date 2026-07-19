@@ -18,6 +18,7 @@
 #endif
 #include <cstddef>
 #include <cctype>
+#include <algorithm>
 
 #if DSP_MODEL == DSP_DUMMY
 #    define DUMMYDISPLAY
@@ -87,18 +88,32 @@ void parseVersionTriplet(const char* ver, uint8_t& a, uint8_t& b, uint8_t& c) {
     c = clampChannel(strtol(tok, nullptr, 10));
 }
 
+constexpr int8_t kDefaultVolumeCurveDb[21] = {-32, -28, -24, -20, -18, -16, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, -0};
+
+bool isVolumeCurveInvalid(const config_t& s) {
+    bool allMinusOne = true;
+    for (size_t i = 0; i < 21; ++i) {
+        const int8_t v = s.volumeCurveDb[i];
+        if (v != -1) { allMinusOne = false; }
+        if (v < -60 || v > 0) { return true; }
+    }
+    return allMinusOne;
+}
 } // namespace
 
 void u8fix(char* src) { // Ha az utolsó tőbbájtos karakter (ékezetes) utolsó bájtja hiányzik akkor az elejét levágja.
-    char last = src[strlen(src) - 1];
-    if ((uint8_t)last >= 0xC2) { src[strlen(src) - 1] = '\0'; }
+    if (!src) { return; }
+    const size_t len = strlen(src);
+    if (len == 0) { return; }
+    char last = src[len - 1];
+    if ((uint8_t)last >= 0xC2) { src[len - 1] = '\0'; }
 }
 
 bool Config::_isFSempty() {
     // Base names without .gz — accepts both compressed and plain uploads
-    const char*   reqiredFiles[] = {"dragpl.js",   "ir.css",    "irrecord.html", "ir.js",        "logo.svg",  "options.html",
-                                    "player.html", "script.js", "style.css",     "updform.html", "theme.css", "theme-editor.html"};
-    const uint8_t reqiredFilesSize = 12;
+    const char*   reqiredFiles[] = {"dragpl.js", "ir.css",    "irrecord.html", "ir.js",     "logo.svg",          "options.html", "player.html",
+                                    "script.js", "style.css", "updform.html",  "theme.css", "theme-editor.html", "volcurve.html"};
+    const uint8_t reqiredFilesSize = 13;
     char          fullpath[32];
     if (LittleFS.exists("/www/settings.html")) { LittleFS.remove("/www/settings.html"); }
     if (LittleFS.exists("/www/update.html")) { LittleFS.remove("/www/update.html"); }
@@ -176,7 +191,7 @@ void Config::init() {
 #    if !defined(SD_SPIPINS)
     SDSPI.begin();
 #    else
-    SDSPI.begin(SD_SPIPINS); // SCK, MISO, MOSI
+    SDSPI.begin(SD_SPIPINS); // SCK, MISO, MOSI, CS
 #    endif
 #endif
     eepromRead(EEPROM_START, store);
@@ -202,6 +217,11 @@ void Config::init() {
     if (store.clockFontStyle > CLOCKFONT_STYLE_ANDROIDCLOCK) { saveValue(&store.clockFontStyle, static_cast<uint8_t>(CLOCKFONT_STYLE)); }
     if (store.clockFontStyle != CLOCKFONT_STYLE_DIGI7 && store.clockFontMono) { saveValue(&store.clockFontMono, false); }
     if (store.dateFormat > 4) { saveValue(&store.dateFormat, static_cast<uint8_t>(0)); }
+    if (isVolumeCurveInvalid(store)) {
+        setDefaultVolumeCurve();
+        for (size_t i = 0; i < 21; ++i) { saveValue(&store.volumeCurveDb[i], store.volumeCurveDb[i], false, true); }
+        EEPROM.commit();
+    }
     BOOTLOG("CONFIG_VERSION\t%d", store.version);
 
     store.play_mode = store.play_mode & 0b11;
@@ -210,6 +230,8 @@ void Config::init() {
 #else
     if (store.play_mode > 1) { store.play_mode = PM_WEB; }
 #endif
+
+    if (store.config_set != 0) { setDefaults(); }
     // DLNA modplus
     _initHW();
     if (!LittleFS.begin(false)) {
@@ -217,14 +239,13 @@ void Config::init() {
 
         LittleFS.format();
 
-        if (!LittleFS.begin()) {
-            Serial.println("##[FATAL]# LittleFS still failed!");
-            return;
-        }
+        if (!LittleFS.begin()) { Serial.println("##[FATAL]# LittleFS still failed!"); }
     }
     BOOTLOG("LittleFS mounted");
     bool themeLoaded = loadThemeFromFile();
     BOOTLOG("Theme file %s", themeLoaded ? "loaded" : "not found or invalid, using defaults");
+    bool curveLoaded = loadVolumeCurveFromFile();
+    BOOTLOG("Volume curve file %s", curveLoaded ? "loaded" : "not found or invalid, using EEPROM/defaults");
     emptyFS = _isFSempty();
     if (emptyFS) {
         BOOTLOG("LittleFS is empty!");
@@ -257,11 +278,6 @@ void Config::init() {
 #ifdef USE_DLNA
     isBooting = false;
 #endif
-
-#if PWR_AMP != 255 // "PWR_AMP"
-    pinMode(PWR_AMP, OUTPUT);
-    digitalWrite(PWR_AMP, HIGH);
-#endif
 }
 
 void Config::_setupVersion() {
@@ -278,7 +294,6 @@ void Config::_setupVersion() {
 }
 
 void Config::changeMode(int newmode) { // DLNA mod
-    // Serial.printf("Config.cpp-->changeMode() newmode: %d", newmode);
 #ifdef USE_SD
     // Encoder dupla klikk (paraméter nélküli hívás)
     if (newmode == -1) {
@@ -544,9 +559,6 @@ void Config::_setDefaultTheme() {
     theme.rssi = color565(COLOR_RSSI);
     theme.rssi_bg = color565(COLOR_RSSI_BG);
     theme.rssi_border = color565(COLOR_RSSI_BORDER);
-    theme.bt = color565(COLOR_BT);
-    theme.bt_bg = color565(COLOR_BT_BG);
-    theme.bt_border = color565(COLOR_BT_BORDER);
     /*----- BITRATE WIDGET -----*/
     theme.bitrate = color565(COLOR_BITRATE);
     /*----- VU WIDGET -----*/
@@ -661,10 +673,6 @@ bool Config::setThemeColorByName(const char* name, uint8_t r, uint8_t g, uint8_t
     SET_THEME_COLOR("rssi", rssi);
     SET_THEME_COLOR("rssi_bg", rssi_bg);
     SET_THEME_COLOR("rssi_border", rssi_border);
-    SET_THEME_COLOR("bt", bt);
-    SET_THEME_COLOR("bt_text", bt);
-    SET_THEME_COLOR("bt_bg", bt_bg);
-    SET_THEME_COLOR("bt_border", bt_border);
     SET_THEME_COLOR("buffer", buffer);
     SET_THEME_COLOR("pl_current", plcurrent);
     SET_THEME_COLOR("plcurrent", plcurrent);
@@ -776,10 +784,6 @@ bool Config::getThemeColorByName(const char* name, uint16_t& color) const {
     GET_THEME_COLOR("rssi", rssi);
     GET_THEME_COLOR("rssi_bg", rssi_bg);
     GET_THEME_COLOR("rssi_border", rssi_border);
-    GET_THEME_COLOR("bt", bt);
-    GET_THEME_COLOR("bt_text", bt);
-    GET_THEME_COLOR("bt_bg", bt_bg);
-    GET_THEME_COLOR("bt_border", bt_border);
     GET_THEME_COLOR("buffer", buffer);
     GET_THEME_COLOR("pl_current", plcurrent);
     GET_THEME_COLOR("plcurrent", plcurrent);
@@ -944,9 +948,6 @@ bool Config::saveThemeToFile() {
     writeColor("rssi", theme.rssi);
     writeColor("rssi_bg", theme.rssi_bg);
     writeColor("rssi_border", theme.rssi_border);
-    writeColor("bt", theme.bt);
-    writeColor("bt_bg", theme.bt_bg);
-    writeColor("bt_border", theme.bt_border);
     writeColor("buffer", theme.buffer);
     writeColor("pl_current", theme.plcurrent);
     writeColor("pl_current_bg", theme.plcurrentbg);
@@ -1031,9 +1032,6 @@ String Config::themeToJson() const {
     appendColor("rssi", theme.rssi);
     appendColor("rssi_bg", theme.rssi_bg);
     appendColor("rssi_border", theme.rssi_border);
-    appendColor("bt", theme.bt);
-    appendColor("bt_bg", theme.bt_bg);
-    appendColor("bt_border", theme.bt_border);
     appendColor("buffer", theme.buffer);
     appendColor("pl_current", theme.plcurrent);
     appendColor("pl_current_bg", theme.plcurrentbg);
@@ -1054,6 +1052,129 @@ String Config::themeToJson() const {
 
     out += "}";
     return out;
+}
+
+void Config::setDefaultVolumeCurve() {
+    for (size_t i = 0; i < 21; ++i) { store.volumeCurveDb[i] = kDefaultVolumeCurveDb[i]; }
+}
+
+String Config::volumeCurveToCsv() const {
+    String out;
+    out.reserve(320);
+    out += "step,db\n";
+    for (int i = 1; i <= 21; ++i) {
+        out += String(i);
+        out += ",";
+        out += String((int)store.volumeCurveDb[i - 1]);
+        out += "\n";
+    }
+    return out;
+}
+
+bool Config::saveVolumeCurveToFile(const char* path) {
+    if (!path || !*path) { return false; }
+    if (!LittleFS.exists("/data")) { LittleFS.mkdir("/data"); }
+    File file = LittleFS.open(path, "w");
+    if (!file) { return false; }
+    file.print(volumeCurveToCsv());
+    file.close();
+    return true;
+}
+
+bool Config::applyVolumeCurveCsv(const char* csvData, String* errorOut) {
+    if (errorOut) { *errorOut = ""; }
+    if (!csvData) {
+        if (errorOut) { *errorOut = "csv data is empty"; }
+        return false;
+    }
+
+    int8_t parsed[21] = {0};
+    bool   seen[21] = {false};
+    int    count = 0;
+    int    lineNo = 0;
+    bool   anyNonMinusOne = false;
+
+    String content(csvData);
+    int    start = 0;
+    while (start <= content.length()) {
+        int end = content.indexOf('\n', start);
+        if (end < 0) { end = content.length(); }
+
+        String line = content.substring(start, end);
+        start = end + 1;
+        ++lineNo;
+        line.trim();
+        if (!line.length()) { continue; }
+
+        line.replace(";", ",");
+
+        int   step = 0;
+        float db = 0.0f;
+        if (sscanf(line.c_str(), " %d , %f", &step, &db) != 2) {
+            if (line.startsWith("step") || line.startsWith("Step")) { continue; }
+            if (errorOut) { *errorOut = "line " + String(lineNo) + ": invalid format, expected step,db"; }
+            return false;
+        }
+
+        if (step < 1 || step > 21) {
+            if (errorOut) { *errorOut = "line " + String(lineNo) + ": step out of range (1..21)"; }
+            return false;
+        }
+        int dbInt = (int)db;
+        if (dbInt < -60) dbInt = -60;
+        if (dbInt > 0) dbInt = 0;
+        if (dbInt != -1) { anyNonMinusOne = true; }
+
+        if (!seen[step - 1]) {
+            seen[step - 1] = true;
+            ++count;
+        }
+        parsed[step - 1] = (int8_t)dbInt;
+    }
+
+    if (count != 21) {
+        if (errorOut) { *errorOut = "missing steps in csv, expected 21 rows"; }
+        return false;
+    }
+
+    if (!anyNonMinusOne) {
+        if (errorOut) { *errorOut = "volume curve cannot be all -1"; }
+        return false;
+    }
+
+    for (int i = 0; i < 21; ++i) { saveValue(&store.volumeCurveDb[i], parsed[i], false, true); }
+    EEPROM.commit();
+
+    float lut[22];
+    lut[0] = -60.0f;
+    for (int i = 1; i <= 21; ++i) { lut[i] = (float)store.volumeCurveDb[i - 1]; }
+    player.setVolumeCurveDbLut(lut, 22);
+    netserver.requestOnChange(GETVOLCURVE, 0);
+    return true;
+}
+
+bool Config::loadVolumeCurveFromFile(const char* path) {
+    if (!path || !*path || !LittleFS.exists(path)) { return false; }
+    File file = LittleFS.open(path, "r");
+    if (!file) { return false; }
+
+    String csv;
+    csv.reserve(file.size() + 1);
+    while (file.available()) {
+        csv += file.readStringUntil('\n');
+        csv += '\n';
+    }
+    file.close();
+
+    String importError;
+    if (applyVolumeCurveCsv(csv.c_str(), &importError)) { return true; }
+
+    Serial.printf("[VOLCURVE] Invalid curve file: %s\n", importError.c_str());
+    setDefaultVolumeCurve();
+    for (size_t i = 0; i < 21; ++i) { saveValue(&store.volumeCurveDb[i], store.volumeCurveDb[i], false, true); }
+    EEPROM.commit();
+    saveVolumeCurveToFile(path);
+    return false;
 }
 
 void Config::reset() {
@@ -1318,6 +1439,7 @@ void Config::setDefaults() {
     store.stationsListReturnTime = 3;
     store.stallWatchdog = true;
     store.serialLittlefsEnabled = true;
+    for (size_t i = 0; i < 21; ++i) { store.volumeCurveDb[i] = kDefaultVolumeCurveDb[i]; }
 #if TS_MODEL == TS_MODEL_FT6X36
     store.xTouchMirroring = false;
     store.yTouchMirroring = false;
@@ -1427,7 +1549,7 @@ void Config::setTitle(const char* title) {
 void Config::setStation(const char* station) {
     memset(config.station.name, 0, BUFLEN);
     strlcpy(config.station.name, station, BUFLEN);
-    u8fix(config.station.title);
+    u8fix(config.station.name);
 }
 
 void Config::indexPlaylist() {
@@ -1437,7 +1559,7 @@ void Config::indexPlaylist() {
     File index = LittleFS.open(INDEX_PATH, "w");
     while (playlist.available()) {
         uint32_t pos = playlist.position();
-        if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, tmpBuf2, sOvol)) { index.write((uint8_t*)&pos, 4); }
+        if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, sizeof(tmpBuf), tmpBuf2, sizeof(tmpBuf2), sOvol)) { index.write((uint8_t*)&pos, 4); }
     }
     index.close();
     playlist.close();
@@ -1482,7 +1604,7 @@ void Config::indexDLNAPlaylist() {
         }
 
         // FONTOS: parseCSV kapjon ÍRHATÓ buffert (lineBuf), ne String.c_str()-t
-        if (parseCSV(lineBuf, tmpBuf, tmpBuf2, sOvol)) {
+        if (parseCSV(lineBuf, tmpBuf, sizeof(tmpBuf), tmpBuf2, sizeof(tmpBuf2), sOvol)) {
             index.write((uint8_t*)&pos, 4);
             ok++;
         }
@@ -1555,7 +1677,7 @@ bool Config::loadStation(uint16_t ls) {
     index.readBytes((char*)&pos, 4);
     index.close();
     playlist.seek(pos, SeekSet);
-    if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, tmpBuf2, sOvol)) {
+    if (parseCSV(playlist.readStringUntil('\n').c_str(), tmpBuf, sizeof(tmpBuf), tmpBuf2, sizeof(tmpBuf2), sOvol)) {
         memset(station.url, 0, BUFLEN);
         memset(station.name, 0, BUFLEN);
         strncpy(station.name, tmpBuf, BUFLEN);
@@ -1594,97 +1716,127 @@ void Config::escapeQuotes(const char* input, char* output, size_t maxLen) {
     output[j] = '\0';
 }
 
-bool Config::parseCSV(const char* line, char* name, char* url, int& ovol) {
+bool Config::parseCSV(const char* line, char* name, size_t nameSize, char* url, size_t urlSize, int& ovol) {
     char*       tmpe;
     const char* cursor = line;
     char        buf[5];
+    if (!line || !name || !url || nameSize == 0 || urlSize == 0) { return false; }
     tmpe = strstr(cursor, "\t");
     if (tmpe == NULL) { return false; }
-    strlcpy(name, cursor, tmpe - cursor + 1);
+    size_t nameLen = static_cast<size_t>(tmpe - cursor);
+    size_t nameCopyLen = (nameLen < (nameSize - 1)) ? nameLen : (nameSize - 1);
+    memcpy(name, cursor, nameCopyLen);
+    name[nameCopyLen] = '\0';
     if (strlen(name) == 0) { return false; }
     cursor = tmpe + 1;
     tmpe = strstr(cursor, "\t");
     if (tmpe == NULL) { return false; }
-    strlcpy(url, cursor, tmpe - cursor + 1);
+    size_t urlLen = static_cast<size_t>(tmpe - cursor);
+    size_t urlCopyLen = (urlLen < (urlSize - 1)) ? urlLen : (urlSize - 1);
+    memcpy(url, cursor, urlCopyLen);
+    url[urlCopyLen] = '\0';
     if (strlen(url) == 0) { return false; }
     cursor = tmpe + 1;
     if (strlen(cursor) == 0) { return false; }
-    strlcpy(buf, cursor, 4);
+    strlcpy(buf, cursor, sizeof(buf));
     ovol = atoi(buf);
     return true;
 }
 
-bool Config::parseJSON(const char* line, char* name, char* url, int& ovol) {
+bool Config::parseJSON(const char* line, char* name, size_t nameSize, char* url, size_t urlSize, int& ovol) {
     char *      tmps, *tmpe;
     const char* cursor = line;
     char        port[8], host[246], file[254];
+    if (!line || !name || !url || nameSize == 0 || urlSize == 0) { return false; }
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(name, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t nameLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t nameCopyLen = (nameLen < (nameSize - 1)) ? nameLen : (nameSize - 1);
+    memcpy(name, tmps + 3, nameCopyLen);
+    name[nameCopyLen] = '\0';
     if (strlen(name) == 0) { return false; }
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(host, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t hostLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t hostCopyLen = (hostLen < (sizeof(host) - 1)) ? hostLen : (sizeof(host) - 1);
+    memcpy(host, tmps + 3, hostCopyLen);
+    host[hostCopyLen] = '\0';
     if (strlen(host) == 0) { return false; }
     if (strstr(host, "http://") == NULL && strstr(host, "https://") == NULL) {
         sprintf(file, "http://%s", host);
-        strlcpy(host, file, strlen(file) + 1);
+        strlcpy(host, file, sizeof(host));
     }
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(file, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t fileLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t fileCopyLen = (fileLen < (sizeof(file) - 1)) ? fileLen : (sizeof(file) - 1);
+    memcpy(file, tmps + 3, fileCopyLen);
+    file[fileCopyLen] = '\0';
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\",\"");
     if (tmpe == NULL) { return false; }
-    strlcpy(port, tmps + 3, tmpe - tmps - 3 + 1);
+    size_t portLen = static_cast<size_t>(tmpe - (tmps + 3));
+    size_t portCopyLen = (portLen < (sizeof(port) - 1)) ? portLen : (sizeof(port) - 1);
+    memcpy(port, tmps + 3, portCopyLen);
+    port[portCopyLen] = '\0';
     int p = atoi(port);
     if (p > 0) {
-        sprintf(url, "%s:%d%s", host, p, file);
+        snprintf(url, urlSize, "%s:%d%s", host, p, file);
     } else {
-        sprintf(url, "%s%s", host, file);
+        snprintf(url, urlSize, "%s%s", host, file);
     }
     cursor = tmpe + 3;
     tmps = strstr(cursor, "\":\"");
     if (tmps == NULL) { return false; }
     tmpe = strstr(tmps, "\"}");
     if (tmpe == NULL) { return false; }
-    strlcpy(port, tmps + 3, tmpe - tmps - 3 + 1);
+    portLen = static_cast<size_t>(tmpe - (tmps + 3));
+    portCopyLen = (portLen < (sizeof(port) - 1)) ? portLen : (sizeof(port) - 1);
+    memcpy(port, tmps + 3, portCopyLen);
+    port[portCopyLen] = '\0';
     ovol = atoi(port);
     return true;
 }
 
 bool Config::parseWsCommand(const char* line, char* cmd, char* val, uint8_t cSize) {
     char* tmpe;
+    if (!line || !cmd || !val || cSize == 0) { return false; }
     tmpe = strstr(line, "=");
     if (tmpe == NULL) { return false; }
     memset(cmd, 0, cSize);
-    strlcpy(cmd, line, tmpe - line + 1);
+    size_t cmdLen = static_cast<size_t>(tmpe - line);
+    size_t cmdCopyLen = (cmdLen < static_cast<size_t>(cSize - 1)) ? cmdLen : static_cast<size_t>(cSize - 1);
+    memcpy(cmd, line, cmdCopyLen);
+    cmd[cmdCopyLen] = '\0';
     // if (strlen(tmpe + 1) == 0) return false;
     memset(val, 0, cSize);
-    strlcpy(val, tmpe + 1, strlen(line) - strlen(cmd) + 1);
+    strlcpy(val, tmpe + 1, cSize);
     return true;
 }
 
 bool Config::parseSsid(const char* line, char* ssid, char* pass) {
     char* tmpe;
+    if (!line || !ssid || !pass) { return false; }
     tmpe = strstr(line, "\t");
     if (tmpe == NULL) { return false; }
     uint16_t pos = tmpe - line;
     if (pos > 29 || strlen(line) > 71) { return false; }
     memset(ssid, 0, 30);
-    strlcpy(ssid, line, pos + 1);
+    size_t ssidCopyLen = (static_cast<size_t>(pos) < static_cast<size_t>(29)) ? static_cast<size_t>(pos) : static_cast<size_t>(29);
+    memcpy(ssid, line, ssidCopyLen);
+    ssid[ssidCopyLen] = '\0';
     memset(pass, 0, 40);
-    strlcpy(pass, line + pos + 1, strlen(line) - pos);
+    strlcpy(pass, line + pos + 1, 40);
     return true;
 }
 
@@ -1796,14 +1948,14 @@ void Config::doSleep() {
         mask |= (1ULL << WAKE_PIN1);
     }
 #endif
-#if WAKE_PIN2 >= 0 && WAKE_PIN2 < 64
+#if WAKE_PIN2 >= 0 && WAKE_PIN2 < 64 && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32S3_DEV))
     if (rtc_gpio_is_valid_gpio((gpio_num_t)WAKE_PIN2)) {
         rtc_gpio_pullup_en((gpio_num_t)WAKE_PIN2);
         rtc_gpio_pulldown_dis((gpio_num_t)WAKE_PIN2);
         mask |= (1ULL << WAKE_PIN2);
     }
 #endif
-    if (mask != 0) { esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW); }
+    if (mask != 0) { esp_sleep_enable_ext1_wakeup(mask, EXT1_MODE); }
     esp_sleep_enable_timer_wakeup(config.sleepfor * 60ULL * 1000000ULL);
     esp_deep_sleep_start();
 }
@@ -1815,9 +1967,9 @@ void Config::doSleepW() {
     gpio_hold_en((gpio_num_t)BRIGHTNESS_PIN); // ← add (MB)
     gpio_deep_sleep_hold_en();                // ← add (MB)
     display.deepsleep();
-    
+
 #ifdef USE_NEXTION
-        nextion.sleep();
+    nextion.sleep();
 #endif
     uint64_t mask = 0;
 #if WAKE_PIN1 >= 0 && WAKE_PIN1 < 64
@@ -1827,7 +1979,7 @@ void Config::doSleepW() {
         mask |= (1ULL << WAKE_PIN1);
     }
 #endif
-#if WAKE_PIN2 >= 0 && WAKE_PIN2 < 64
+#if WAKE_PIN2 >= 0 && WAKE_PIN2 < 64 && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32S3_DEV))
     if (rtc_gpio_is_valid_gpio((gpio_num_t)WAKE_PIN2)) {
         rtc_gpio_pullup_en((gpio_num_t)WAKE_PIN2);
         rtc_gpio_pulldown_dis((gpio_num_t)WAKE_PIN2);
@@ -1835,7 +1987,7 @@ void Config::doSleepW() {
     }
 #endif
     delay(200);
-    if (mask != 0) { esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW); }
+    if (mask != 0) { esp_sleep_enable_ext1_wakeup(mask, EXT1_MODE); }
     esp_deep_sleep_start();
 }
 

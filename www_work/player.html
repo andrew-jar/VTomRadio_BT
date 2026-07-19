@@ -25,10 +25,11 @@
       <path d="M12 16v4"></path>
     </svg>
   </div>
-  <div class="gb nb local"
-       id="btbtn"
-       title="Bluetooth panel"
-       onclick="window.location.href='bt.html'">
+    <a class="gb nb local"
+      id="btbtn"
+      title="Bluetooth panel"
+      href="/bt.html"
+      aria-label="Bluetooth panel">
     <svg viewBox="0 0 24 24"
          stroke-width="1.5"
          fill="none"
@@ -41,7 +42,7 @@
       <path d="M17 7l-5 -4"></path>
       <path d="M17 17l-5 4"></path>
     </svg>
-  </div>
+  </a>
     <div id="logo"></div>
     <div class="gb nb local modeweb" id="searchradio" onclick="window.location.href='search.html'">
       <svg viewBox="0 0 24 24" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -140,6 +141,7 @@
         </li>
         <li class="formbuttons">
           <div class="fb local" data-command="toggle" data-target="equalizerbg">Acceptable...</div>
+          <a class="fb" href="/volcurve.html">VOLUME CURVE...</a>
         </li>
       </ul>
     </div>

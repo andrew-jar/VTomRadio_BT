@@ -20,6 +20,8 @@ class TextWidget;
 class textBoxWidget;
 class VolumeWidget;
 class WifiWidget;
+class ImageWidget;
+class textBoxWidget;
 class NamedayWidget;
 
 class Display {
@@ -69,10 +71,13 @@ class Display {
     ClockWidget*    _clock;
     Page*           _boot;
     TextWidget *    _volip, *_voltxt, *_rssi, *_bitrate, *_chtxt;
-    textBoxWidget * _ipbox, *_chbox, *_rssibox, *_btbox = nullptr, *_bootstring;
+    textBoxWidget * _ipbox, *_chbox, *_rssibox, *_bootstring;
     VolumeWidget*   _volwidget;
     WifiWidget*     _wifiwidget;
+    ImageWidget*    _bticon = nullptr;
+    textBoxWidget*  _btbox = nullptr;
     NamedayWidget*  _namedaywidget;
+    bool            _btConnected = false;
 
     bool    _locked = false;
     uint8_t _bootStep;
@@ -93,7 +98,7 @@ class Display {
     void    _updateBootSprite(int ssidIndex);
     void    _refreshThemeColors();
     void    _applyRssiMode();
-    void    _setBtConnected();
+    void    _refreshStatusWidgets();
 };
 
 #else

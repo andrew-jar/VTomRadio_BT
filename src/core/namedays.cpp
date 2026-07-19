@@ -1,6 +1,6 @@
 #include "namedays.h"
 
-#ifdef NAMEDAYS_FILE     // "namedays"
+#ifdef NAMEDAYS_FILE     // plik z imieninami
 #if NAMEDAYS_FILE == HU
   #include "../../locale/namedays/namedays_HU.h"
 #elif NAMEDAYS_FILE == PL
@@ -15,73 +15,75 @@
   #include "../../locale/namedays/namedays_UA.h"  
 #elif NAMEDAYS_FILE == DE
   #include "../../locale/namedays/namedays_DE.h"    
+#elif NAMEDAYS_FILE == CZ
+  #include "../../locale/namedays/namedays_CZ.h"
 #else
   #error "Unsupported NAMEDAYS_FILE"
 #endif
 
-// --- Rotációs változók ---
-uint32_t namedayLastRotation = 0;  // utolsó forgási idő
-uint8_t  namedayCurrentIndex = 0;  // aktuális névindex
-char     currentNamedayBuffer[30]; // puffer az aktuális névhez
-int      lastNamedayDay = -1;      // utolsó nap a forgatás visszaállítására
-int      lastNamedayMonth = -1;    // a rotáció visszaállításának utolsó hónapja
+// --- Zmienne rotacji ---
+uint32_t namedayLastRotation = 0;  // czas ostatniej zmiany
+uint8_t  namedayCurrentIndex = 0;  // aktualny indeks imienia
+char     currentNamedayBuffer[50]; // bufor dla aktualnego imienia
+int      lastNamedayDay = -1;      // ostatni dzien do resetu rotacji
+int      lastNamedayMonth = -1;    // ostatni miesiac do resetu rotacji
 
-// Függvény, amely visszaadja az év egy adott napjának aktuális nevét, 4 másodpercenként váltakozva
+// Funkcja zwraca aktualne imie dla danego dnia roku, zmieniane co 4 sekundy
 const char *getNameDay(int month, int day) {
   const int daysInMonth[] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  int       dayOfYear = day - 1; // a hónap napja (0-alapú)
+  int       dayOfYear = day - 1; // dzien miesiaca (indeks od 0)
 
   for (int i = 0; i < month - 1; i++) {
     dayOfYear += daysInMonth[i];
   }
 
   if (dayOfYear < 0 || dayOfYear >= 366) {
-    return ""; // üres karakterláncot ad vissza, ha a nap érvénytelen
+    return ""; // zwroc pusty napis, jesli dzien jest nieprawidlowy
   }
 
-  // Ellenőrizd, hogy változott-e a nap - ha igen, állítsd vissza a rotációt
+  // Sprawdz, czy zmienil sie dzien; jesli tak, zresetuj rotacje
   if (lastNamedayDay != day || lastNamedayMonth != month) {
     lastNamedayDay = day;
     lastNamedayMonth = month;
     namedayCurrentIndex = 0;
     namedayLastRotation = millis();
-    memset(currentNamedayBuffer, 0, sizeof(currentNamedayBuffer)); // napváltáskor törli a puffert
+    memset(currentNamedayBuffer, 0, sizeof(currentNamedayBuffer)); // wyczysc bufor przy zmianie dnia
   }
 
-  // A nap neveit tartalmazó karakterlánc lekérése
+  // Pobranie lancucha z imionami dla danego dnia
   char tempBuffer[80];
   //strcpy_P(tempBuffer, (const char *)pgm_read_ptr(&namedays[dayOfYear]));
   strcpy(tempBuffer, namedays[dayOfYear]);
 
-  //  Serial.printf("displayILI9488.cpp -> A kiolvasott névnapok: %s%\n", tempBuffer);
-  // Megszámoljuk a nevek számát a karakterláncban (vesszővel elválasztva)
+  //  Serial.printf("displayILI9488.cpp -> Wczytane imieniny: %s%\n", tempBuffer);
+  // Policz liczbe imion w lancuchu (oddzielonych przecinkiem)
   uint8_t nameCount = 1;
   for (int i = 0; tempBuffer[i] != '\0'; i++) {
     if (tempBuffer[i] == ',')
       nameCount++;
   }
 
-  // Ha csak egy név van, ne cseréld le
+  // Jesli jest tylko jedno imie, nie rotuj
   if (nameCount == 1) {
-    memset(currentNamedayBuffer, 0, sizeof(currentNamedayBuffer)); // ürítsd ki a puffert
+    memset(currentNamedayBuffer, 0, sizeof(currentNamedayBuffer)); // wyczysc bufor
     strlcpy(currentNamedayBuffer, tempBuffer, sizeof(currentNamedayBuffer));
     return currentNamedayBuffer;
   }
 
-  // Ellenőrzi, hogy eltelt-e 4 másodperc az utolsó forgatás óta
+  // Sprawdz, czy minely 4 sekundy od ostatniej zmiany
   uint32_t currentTime = millis();
-  if (currentTime - namedayLastRotation >= 4000) { // 4 másodperc
+  if (currentTime - namedayLastRotation >= 4000) { // 4 sekundy
     namedayLastRotation = currentTime;
     namedayCurrentIndex++;
 
-    // Index visszaállítása, ha meghaladja a nevek számát
+    // Reset indeksu, jesli przekroczono liczbe imion
     if (namedayCurrentIndex >= nameCount) {
       namedayCurrentIndex = 0;
     }
   }
 
-  // Keresd meg a megfelelő nevet a listából
-  //strcpy_P(tempBuffer, (const char *)pgm_read_ptr(&namedays[dayOfYear])); // Másolja újra, mert az strtok megsemmisíti
+  // Znajdz odpowiednie imie na liscie
+  //strcpy_P(tempBuffer, (const char *)pgm_read_ptr(&namedays[dayOfYear])); // Skopiuj ponownie, bo strtok modyfikuje bufor
  strcpy(tempBuffer, namedays[dayOfYear]);
 
   char *token = strtok(tempBuffer, ",");
@@ -90,11 +92,11 @@ const char *getNameDay(int month, int day) {
   }
 
   if (token) {
-    // Töröljük el a szóközöket az elejéről
+    // Usun biale znaki z poczatku
     while (*token == ' ' || *token == '\t')
       token++;
 
-    memset(currentNamedayBuffer, 0, sizeof(currentNamedayBuffer)); // puffer ürítése írás előtt
+    memset(currentNamedayBuffer, 0, sizeof(currentNamedayBuffer)); // wyczysc bufor przed zapisem
     strlcpy(currentNamedayBuffer, token, sizeof(currentNamedayBuffer));
     return currentNamedayBuffer;
   }

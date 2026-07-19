@@ -123,9 +123,8 @@ struct m4aHdr_t { // used in read_M4A_Header
 struct plCh_t { // used in playChunk
     uint32_t  count = 0;
     size_t    i2s_bytesConsumed;
-    uint16_t  samples;
-    int16_t*  sample[2];
     esp_err_t err;
+    int32_t* sourceBuff = nullptr;
 };
 
 struct lVar_t { // used in loop
@@ -202,8 +201,7 @@ typedef struct _tspp { // used in ts_parsePacket
     uint8_t fillData{};
 
     void reset() {
-        // Default-initialize alles neu (inklusive Array)
-        *this = _tspp{};
+        *this = _tspp{}; // Default-initialize all new (inclusive Array)
     }
 } tspp_t;
 
@@ -218,10 +216,14 @@ struct pwst_t { // used in processWebStream
 };
 
 struct gchs_t { // used in getChunkSize
-    bool   f_skipCRLF;
-    bool   isHttpChunked;
-    size_t transportLimit;
-    bool   oneByteOfTwo;
+    int32_t      chunkSize = -1;
+    uint32_t     timeStamp = {};
+    ps_ptr<char> chunkLine = {};
+    ps_ptr<char> extension = {};
+    ps_ptr<char> trailer = {};
+    uint16_t     position = 0;
+
+    void reset() { *this = gchs_t{}; }
 };
 
 struct pwf_t { // used in processWebFile
@@ -329,7 +331,7 @@ struct phrah_t { // used in parseHttpRangeHeader
 struct sdet_t { // used in streamDetection
     uint32_t tmr_slow = 0;
     uint32_t tmr_lost = 0;
-    uint8_t  cnt_slow = 0;
+    uint32_t cnt_slow = 0;
     uint8_t  cnt_lost = 0;
 };
 
@@ -426,6 +428,18 @@ struct info_queue_t {
     std::deque<std::vector<uint32_t>> vec = {}; // apic [pos, len, pos, len, pos, len, ....]
 
     void reset() { *this = info_queue_t{}; }
+};
+
+struct icy_items_t {
+    ps_ptr<char> icy_genre = {};
+    ps_ptr<char> icy_logo = {};
+    ps_ptr<char> icy_name = {};
+    ps_ptr<char> icy_description = {};
+    ps_ptr<char> icy_url = {};
+    ps_ptr<char> icy_metaint = {};
+    ps_ptr<char> icy_br = {};
+
+    void reset() { *this = icy_items_t{}; }
 };
 
 } // namespace audiolib

@@ -12,13 +12,13 @@ const char fri[] PROGMEM = "pią";
 const char sat[] PROGMEM = "sob";
 const char sun[] PROGMEM = "nie";
 
-const char monf[] PROGMEM = "poniedziałek";
-const char tuef[] PROGMEM = "wtorek";
-const char wedf[] PROGMEM = "środa";
-const char thuf[] PROGMEM = "czwartek";
-const char frif[] PROGMEM = "piątek";
-const char satf[] PROGMEM = "sobota";
-const char sunf[] PROGMEM = "niedziela";
+const char monf[] PROGMEM = "Poniedziałek";
+const char tuef[] PROGMEM = "Wtorek";
+const char wedf[] PROGMEM = "Środa";
+const char thuf[] PROGMEM = "Czwartek";
+const char frif[] PROGMEM = "Piątek";
+const char satf[] PROGMEM = "Sobota";
+const char sunf[] PROGMEM = "Niedziela";
 /*
 const char jan[] PROGMEM = "stycznia";
 const char feb[] PROGMEM = "lutego";

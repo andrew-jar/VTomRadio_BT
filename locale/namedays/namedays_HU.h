@@ -221,7 +221,7 @@ const char* namedays[] = {
   "Örs,Stella,Kamil",
   "Örkény,Henrik,Roland,Bonaventúra,Csegő",
   "Valter,Irma",
-  "Endre,Elek,András",
+  "Endre,Elek",
   "Szömér,Frigyes,Milla,Hedvig,Mirkó,Federikó",
   "Emília",
   "Illés,Margaréta",

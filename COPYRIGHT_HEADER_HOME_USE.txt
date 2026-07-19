@@ -1,0 +1,3 @@
+Copyright (c) 2026 A. Jaroszuk. All rights reserved.
+Licensed for private home use only under LICENSE_HOME_USE.md.
+No redistribution, no commercial use, no derivative distribution without prior written permission.

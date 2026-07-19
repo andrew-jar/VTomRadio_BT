@@ -2,7 +2,7 @@
 #define options_h
 #pragma once
 
-#define FW_VERSION "0.1.0"
+#define FW_VERSION "0.1.9"
 
 #ifndef THEME_CSV_VERSION
 #    define THEME_CSV_VERSION "0.0.1"
@@ -24,6 +24,17 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 
 #if __has_include("../../mqttoptions.h")
 #    include "../../mqttoptions.h"
+#endif
+
+// Backward compatibility for older KCX naming in custom myoptions.h
+#if !defined(BT_BRIDGE_RX) && defined(KCX_BT_RX)
+#    define BT_BRIDGE_RX KCX_BT_RX
+#endif
+#if !defined(BT_BRIDGE_TX) && defined(KCX_BT_TX)
+#    define BT_BRIDGE_TX KCX_BT_TX
+#endif
+#if !defined(BT_BRIDGE_BAUD) && defined(KCX_BT_BAUD)
+#    define BT_BRIDGE_BAUD KCX_BT_BAUD
 #endif
 
 #ifndef BOOTLOG
@@ -113,29 +124,29 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
   #define USE_NEXTION
 #endif
 
-/*        KCX BT Emitter (direct UART) */
-#ifndef KCX_BT_RX
-  #define KCX_BT_RX -1
+/*        BT BRIDGE UART (ESP32-WROOM transmitter control)        */
+#ifndef BT_BRIDGE_RX
+  #define BT_BRIDGE_RX 255
 #endif
-#ifndef KCX_BT_TX
-  #define KCX_BT_TX -1
+#ifndef BT_BRIDGE_TX
+  #define BT_BRIDGE_TX 255
 #endif
-#ifndef KCX_BT_LINK
-  #define KCX_BT_LINK -1
+#ifndef BT_BRIDGE_BAUD
+  #define BT_BRIDGE_BAUD 115200
 #endif
-#ifndef KCX_BT_CONNECT
-  #define KCX_BT_CONNECT -1
-#endif
-#ifndef KCX_BT_MODE
-  #define KCX_BT_MODE -1
-#endif
-#ifndef KCX_BT_BAUD
-  #define KCX_BT_BAUD 115200
-#endif
-#ifndef KCX_BT_STARTUP_VOL
-  #define KCX_BT_STARTUP_VOL -1
+#if BT_BRIDGE_RX != 255 && BT_BRIDGE_TX != 255
+  #define USE_BT_BRIDGE
 #endif
 
+// Keep I2S output at fixed 48 kHz (uses internal resampler when source differs).
+// Helpful for BT bridge paths where downstream expects stable source clock.
+#ifndef PLAYER_FORCE_OUTPUT_48KHZ
+  #ifdef USE_BT_BRIDGE
+    #define PLAYER_FORCE_OUTPUT_48KHZ true
+  #else
+    #define PLAYER_FORCE_OUTPUT_48KHZ false
+  #endif
+#endif
 /*        OLED I2C DISPLAY        */
 #ifndef I2C_SDA
   #define I2C_SDA 21
@@ -435,6 +446,14 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #endif
 #ifndef WAKE_PIN2
   #define WAKE_PIN2     255   // Wake Pin (for manual wakeup from sleep mode. can match with BTN_XXXX, ENC_BTNB, ENC2_BTNB.  
+#endif
+
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32S3_DEV)
+  // ESP32-S3 supports ANY_LOW for EXT1 wakeup source.
+  #define EXT1_MODE ESP_EXT1_WAKEUP_ANY_LOW
+#else
+  // Classic ESP32 targets use ALL_LOW.
+  #define EXT1_MODE ESP_EXT1_WAKEUP_ALL_LOW
 #endif
 
 

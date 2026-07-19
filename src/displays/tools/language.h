@@ -22,6 +22,8 @@ namespace LANG{
 #define LANG_PATH "../../../locale/language_de.h"
 #elif LANGUAGE == ES
 #define LANG_PATH "../../../locale/language_es.h"
+#elif LANGUAGE == CZ
+#define LANG_PATH "../../../locale/language_cz.h"
 #endif
 
 #include LANG_PATH
