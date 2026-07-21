@@ -24,6 +24,7 @@ uint32_t g_connectAttemptStartedMs = 0;
 uint32_t g_reconnectAtMs = 0;
 bool     g_internalRecoveryDisconnect = false;
 bool     g_internalRecoveryConnect = false;
+bool     g_pendingConfiguredVol = false;
 uint32_t g_lastStatusTxMs = 0;
 String   g_connectArg;
 SemaphoreHandle_t g_btUartMutex = nullptr;
@@ -140,18 +141,15 @@ static void parseStateLine(const char* line) {
         g_connected = false;
         g_recentAudioStarted = false;
         g_lastAudioStartedMs = 0;
+        g_connectAttemptActive = false;
+        g_connectRecoveryDone = false;
         return;
     }
 
     if (strstr(line, "EVT A2DP_CONN CONNECTED") != nullptr) {
         g_seenConnectEvent = true;
         g_connected = true;
-        int v = config.store.volume;
-        if (v < 0) v = 0;
-        if (v > 100) v = 100;
-        char cmd[16];
-        snprintf(cmd, sizeof(cmd), "VOL %d", v);
-        btBridge.sendLine(cmd);
+        g_pendingConfiguredVol = true;
     }
 
     if (strstr(line, "EVT A2DP_AUDIO STARTED") != nullptr) {
@@ -164,6 +162,7 @@ static void parseStateLine(const char* line) {
         g_reconnectAtMs = 0;
         g_internalRecoveryDisconnect = false;
         g_internalRecoveryConnect = false;
+        g_pendingConfiguredVol = true;
     }
 
     if (strstr(line, "EVT A2DP_AUDIO STOPPED") != nullptr) {
@@ -184,6 +183,7 @@ static void parseStateLine(const char* line) {
             g_reconnectAtMs = 0;
             g_internalRecoveryDisconnect = false;
             g_internalRecoveryConnect = false;
+            g_pendingConfiguredVol = false;
             g_connectArg = "";
             return;
         }
@@ -292,6 +292,9 @@ bool BtBridge::sendLine(const char* line, uint8_t clientId) {
     String cmdUpper = cmd;
     cmdUpper.toUpperCase();
     if (cmdUpper == "STATUS?") {
+        if (g_connectAttemptActive && !g_recentAudioStarted) {
+            return true;
+        }
         // Throttle bursty STATUS requests (UI poll + backend poll + fast refresh bursts).
         if (g_lastStatusTxMs != 0 && static_cast<int32_t>(millis() - g_lastStatusTxMs) < 600) {
             return true;
@@ -396,6 +399,16 @@ void BtBridge::loop() {
             }
         }
         unlockBtUart();
+    }
+
+    if (g_pendingConfiguredVol && g_recentAudioStarted) {
+        g_pendingConfiguredVol = false;
+        int v = config.store.volume;
+        if (v < 0) v = 0;
+        if (v > 100) v = 100;
+        char cmd[16];
+        snprintf(cmd, sizeof(cmd), "VOL %d", v);
+        sendLine(cmd);
     }
 
     // Keep backend self-polling only when no WS clients are active.
