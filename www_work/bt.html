@@ -749,6 +749,7 @@
       if (!cmd) return;
       let normalized = String(cmd).trim();
       let upper = normalized.toUpperCase();
+      let issueScanStopBeforeDeferredConnect = false;
 
       if (upper === 'SCAN' && els.stMode && els.stMode.textContent === 'OFF') {
         addLog('SCAN blocked: MODE OFF. Switch to TX first.', 'warn');
@@ -792,12 +793,10 @@
             }
             markConnectIntent(d.mac, d.name);
             if (scanInProgress) {
-              // Device is already discovered; send CONNECT by MAC immediately
-              // instead of waiting for SCAN DONE.
+              // When SCAN is active, pin deferred CONNECT to MAC (stable target)
+              // and wait for SCAN to stop before sending CONNECT.
               normalized = 'CONNECT ' + d.mac;
               upper = normalized.toUpperCase();
-              deferConnectUntilScanDone = false;
-              addLog('CONNECT accelerated during scan using MAC (' + d.mac + ')', 'ok');
             }
           } else {
             connectTarget = arg;
@@ -825,8 +824,8 @@
           // Do not let duplicate suppression block this deferred command after SCAN DONE.
           lastConnectCmd = '';
           lastConnectCmdMs = 0;
+          issueScanStopBeforeDeferredConnect = true;
           addLog('CONNECT deferred: waiting for SCAN DONE (' + normalized + ')', 'warn');
-          return;
         }
       } else if (upper === 'DISCONNECT') {
         connectSuppressedUntilMs = Date.now() + 5000;
@@ -851,6 +850,27 @@
 
       if (!ws || ws.readyState !== 1) {
         addLog('WS not connected, cannot send: ' + normalized, 'bad');
+        return;
+      }
+
+      if (issueScanStopBeforeDeferredConnect) {
+        const pendingConnectCmd = deferredConnectCmd;
+        deferredConnectCmd = '';
+
+        ws.send('btcmd=SCAN STOP');
+        addLog('TX SCAN STOP', 'ok');
+        scheduleStatus(250);
+
+        setTimeout(() => {
+          if (!pendingConnectCmd) return;
+          if (!ws || ws.readyState !== 1) {
+            addLog('WS not connected, deferred CONNECT dropped: ' + pendingConnectCmd, 'bad');
+            return;
+          }
+          ws.send('btcmd=' + pendingConnectCmd);
+          addLog('TX deferred ' + pendingConnectCmd, 'ok');
+          scheduleStatus(400);
+        }, 500);
         return;
       }
 
@@ -1324,8 +1344,12 @@
           lastConnectCmd = '';
           lastConnectCmdMs = 0;
           cancelConnectRetry();
+          if (ws && ws.readyState === 1) {
+            ws.send('btcmd=SCAN STOP');
+            addLog('TX SCAN STOP', 'ok');
+          }
           addLog('TX deferred ' + pending, 'ok');
-          setTimeout(() => sendBtCmd(pending), DEFERRED_CONNECT_DELAY_MS);
+          setTimeout(() => sendBtCmd(pending), 600);
         }
       }
     }
