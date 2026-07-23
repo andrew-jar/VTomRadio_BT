@@ -238,15 +238,15 @@
 
           <select id="dateformat" class="textinput">
 
-            <option value="0">YYYY.MM.DD</option>
+            <option value="0">YYYY. MM. DD. DOW</option>
 
-            <option value="1">MM/DD/YYYY</option>
+            <option value="1">DD MM YYYY</option>
 
-            <option value="2">DD-MM-YYYY</option>
+            <option value="2">DOW DD MM YYYY</option>
 
-            <option value="3">DD.MM.YYYY</option>
+            <option value="3">DOW - DD. MM. YYYY</option>
 
-            <option value="4">DD/MM/YYYY</option>
+            <option value="4">DOW, DD. MM. YYYY</option>
 
           </select>
 
@@ -989,6 +989,16 @@
       <div class="fb tool local" data-command="settingsexport" title="Export settings to CSV">export settings</div>
 
       <div class="fb tool local" data-command="settingsimport" title="Import settings from CSV">import settings</div>
+
+    </div>
+
+    <div class="flex-row center" style="margin-top: 10px;">
+
+      <input id="presets-import-file" type="file" accept=".csv" hidden />
+
+      <div class="fb tool local" data-command="presetsexport" title="Export presets (FAV) to CSV">export presets</div>
+
+      <div class="fb tool local" data-command="presetsimport" title="Import presets (FAV) from CSV">import presets</div>
 
     </div>
 

@@ -2,25 +2,25 @@
 
 #include "options.h"
 
-// Csak akkor fordul, ha van NAMEDAYS_FILE definiálva
+// Kompiluj tylko wtedy, gdy zdefiniowano NAMEDAYS_FILE
 #ifdef NAMEDAYS_FILE
 
 #include <Arduino.h>
 
-// Tömb deklaráció
+// Deklaracja tablicy
 extern const char* namedays[];
 
-// Label deklaráció
+// Deklaracja etykiety
 extern const char* nameday_label;
 
-// Névnap-rotáció változói
-extern uint32_t namedayLastRotation;      // utolsó forgási idő
-extern uint8_t  namedayCurrentIndex;      // aktuális névindex
-extern char     currentNamedayBuffer[30]; // puffer az aktuális névhez
-extern int      lastNamedayDay;           // utolsó nap a forgatás visszaállítására
-extern int      lastNamedayMonth;         // a rotáció visszaállításának utolsó hónapja
+// Zmienne rotacji imienin
+extern uint32_t namedayLastRotation;      // czas ostatniej zmiany
+extern uint8_t  namedayCurrentIndex;      // aktualny indeks imienia
+extern char     currentNamedayBuffer[50]; // bufor dla aktualnego imienia
+extern int      lastNamedayDay;           // ostatni dzien do resetu rotacji
+extern int      lastNamedayMonth;         // ostatni miesiac do resetu rotacji
 
-// Függvény, amely visszaadja az év egy adott napjának aktuális nevét, 4 másodpercenként váltakozva
+// Funkcja zwraca aktualne imie dla danego dnia roku, zmieniane co 4 sekundy
 const char *getNameDay(int month, int day);
 
 #endif // NAMEDAYS_FILE

@@ -19,6 +19,7 @@
 #define TMP_PATH      "/data/tmpfile.txt"
 #define INDEX_PATH    "/data/index.dat"
 #define THEME_PATH    "/data/theme.csv"
+#define VOLCURVE_PATH "/data/volcurve.csv"
 
 #define PLAYLIST_SD_PATH "/data/playlistsd.csv"
 #define INDEX_SD_PATH    "/data/indexsd.dat"
@@ -42,7 +43,7 @@
 #    define ESP_ARDUINO_3 1
 #endif
 
-#define CONFIG_VERSION 6
+#define CONFIG_VERSION 4
 
 enum playMode_e : uint8_t { // DLNA mod
     PM_WEB = 0,
@@ -97,10 +98,6 @@ struct theme_t {
     uint16_t rssi;
     uint16_t rssi_bg;
     uint16_t rssi_border;
-    /*----- BT ICON -----*/
-    uint16_t bt;
-    uint16_t bt_bg;
-    uint16_t bt_border;
     /*----- BITRATE -----*/
     uint16_t bitrate;
     /*----- PLAYLIST -----*/
@@ -209,13 +206,14 @@ struct config_t {
     bool    directChannelChange;
     uint8_t stationsListReturnTime;
     bool    stallWatchdog;
-    bool    serialLittlefsEnabled;
     bool    xTouchMirroring;
     bool    yTouchMirroring;
     uint8_t clockFontStyle;
     bool    clockFontMono;
     bool    clockAmPmStyle;
-        bool    rssiAsText;
+    bool    rssiAsText;
+    bool    serialLittlefsEnabled;
+    int8_t  volumeCurveDb[21]; // step 1..21, dB values in range -60..0
 };
 #if IR_PIN != 255
 struct IRCommand {
@@ -298,6 +296,11 @@ class Config {
     bool    loadThemeFromFile(const char* path = THEME_PATH);
     bool    saveThemeToFile();
     bool    applyThemeCsv(const char* csvData);
+    bool    loadVolumeCurveFromFile(const char* path = VOLCURVE_PATH);
+    bool    saveVolumeCurveToFile(const char* path = VOLCURVE_PATH);
+    bool    applyVolumeCurveCsv(const char* csvData, String* errorOut = nullptr);
+    String  volumeCurveToCsv() const;
+    void    setDefaultVolumeCurve();
     bool    setThemeColorByName(const char* name, uint8_t r, uint8_t g, uint8_t b);
     bool    getThemeColorByName(const char* name, uint16_t& color) const;
     String  themeToJson() const;
@@ -311,8 +314,8 @@ class Config {
     void    setTitle(const char* title);
     void    setStation(const char* station);
     void    escapeQuotes(const char* input, char* output, size_t maxLen);
-    bool    parseCSV(const char* line, char* name, char* url, int& ovol);
-    bool    parseJSON(const char* line, char* name, char* url, int& ovol);
+    bool    parseCSV(const char* line, char* name, size_t nameSize, char* url, size_t urlSize, int& ovol);
+    bool    parseJSON(const char* line, char* name, size_t nameSize, char* url, size_t urlSize, int& ovol);
     bool    parseWsCommand(const char* line, char* cmd, char* val, uint8_t cSize);
     bool    parseSsid(const char* line, char* ssid, char* pass);
     bool    loadStation(uint16_t station);

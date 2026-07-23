@@ -355,8 +355,8 @@ int NeaacDecoder::NeAACDecGetVersion(const char** faad_id_string, const char** f
     return 0;
 }
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-const char* NeaacDecoder::NeAACDecGetErrorMessage(const uint8_t errcode) {
-    if (errcode >= NUM_ERROR_MESSAGES) return NULL;
+error_info_t NeaacDecoder::NeAACDecGetErrorMessage(const uint8_t errcode) {
+    if (errcode > NUM_ERROR_MESSAGES) return err_msg[NUM_ERROR_MESSAGES]; // unspecified
     return err_msg[errcode];
 }
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -2145,7 +2145,7 @@ void NeaacDecoder::cfftf(uint16_t mdct_len, complex_t* c) {
             cfft_select = m_ccft2048.get();
             work_select = m_work2048.get();
             break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
     cfftf1neg(cfft_select->n, c, work_select, (const uint16_t*)cfft_select->ifac, (const complex_t*)cfft_select->tab, -1);
 }
@@ -2166,7 +2166,7 @@ void NeaacDecoder::cfftb(uint16_t mdct_len, complex_t* c) {
             cfft_select = m_ccft2048.get();
             work_select = m_work2048.get();
             break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
     cfftf1pos(cfft_select->n, c, work_select, (const uint16_t*)cfft_select->ifac, (const complex_t*)cfft_select->tab, +1);
 }
@@ -2265,7 +2265,7 @@ void NeaacDecoder::cffti(uint16_t mdct_len, uint16_t n) {
             cfft_select = m_ccft2048.get();
             m_work2048.alloc_array(n * sizeof(complex_t), "m_work2048");
             break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
     cfft_select->n = n;
 
@@ -3740,7 +3740,7 @@ void NeaacDecoder::faad_mdct_init(uint16_t mdct_len, uint16_t N) {
             m_mdct2048.alloc("m_mdct2048");
             mdct_new = m_mdct2048.get();
             break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
     assert(N % 8 == 0);
     mdct_new->N = N;
@@ -3793,7 +3793,7 @@ void NeaacDecoder::faad_mdct_end(uint16_t mdct_len) {
             m_ccft2048.reset();
             m_mdct2048.reset();
             break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
 }
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -3803,7 +3803,7 @@ void NeaacDecoder::faad_imdct(uint16_t mdct_len, real_t* X_in, real_t* X_out) {
         case 256: mdct_select = m_mdct256.get(); break;
         case 1024: mdct_select = m_mdct1024.get(); break;
         case 2048: mdct_select = m_mdct2048.get(); break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
     uint16_t  k;
     complex_t x;
@@ -3892,7 +3892,7 @@ void NeaacDecoder::faad_mdct(uint16_t mdct_len, real_t* X_in, real_t* X_out) {
         case 256: mdct_select = m_mdct256.get(); break;
         case 1024: mdct_select = m_mdct1024.get(); break;
         case 2048: mdct_select = m_mdct2048.get(); break;
-        default: AAC_LOG_ERROR("wrong length %i", mdct_len);
+        default: AAC_LOG_ERROR("wrong length {}", mdct_len);
     }
     uint16_t  k;
     complex_t x;
@@ -6731,27 +6731,31 @@ real_t NeaacDecoder::iquant(int16_t q, const real_t* tab, uint8_t* error) {
     real_t       x1, x2;
     #endif
     int16_t sgn = 1;
-    if (q < 0) {
-        q = -q;
+    /* compute the magnitude in int: -q is evaluated as int and so does not wrap for q == -32768 the way an int16_t negation would, which keeps the
+       comparison against IQ_TABLE_SIZE in range like the floating-point path */
+    int32_t aq = q;
+
+    if (aq < 0) {
+        aq = -aq;
         sgn = -1;
     }
-    if (q < IQ_TABLE_SIZE) {
+    if (aq < IQ_TABLE_SIZE) {
     // #define IQUANT_PRINT
     #ifdef IQUANT_PRINT
-        // printf("0x%.8X\n", sgn * tab[q]);
-        printf("%d\n", sgn * tab[q]);
+        // printf("0x%.8X\n", sgn * tab[aq]);
+        printf("%d\n", sgn * tab[aq]);
     #endif
-        return sgn * tab[q];
+        return sgn * tab[aq];
     }
     #ifndef BIG_IQ_TABLE
-    if (q >= 8192) {
+    if (aq >= 8192) {
         *error = 17;
         return 0;
     }
     /* linear interpolation */
-    x1 = tab[q >> 3];
-    x2 = tab[(q >> 3) + 1];
-    return sgn * 16 * (MUL_R(errcorr[q & 7], (x2 - x1)) + x1);
+    x1 = tab[aq >> 3];
+    x2 = tab[(aq >> 3) + 1];
+    return sgn * 16 * (MUL_R(errcorr[aq & 7], (x2 - x1)) + x1);
     #else
     *error = 17;
     return 0;
@@ -9266,6 +9270,11 @@ uint8_t NeaacDecoder::rvlc_scale_factor_data(ic_stream* ics, bitfile* ld) {
     ics->length_of_rvlc_sf = (uint16_t)faad_getbits(ld, bits);
     if (ics->noise_used) {
         ics->dpcm_noise_nrg = (uint16_t)faad_getbits(ld, 9);
+
+        /* the 9 bits of dpcm_noise_nrg are counted in length_of_rvlc_sf, so a conformant value is at least 9; reject a smaller one before the
+           unsigned subtraction wraps length_of_rvlc_sf to a huge value */
+        if (ics->length_of_rvlc_sf < 9) return 8;
+
         ics->length_of_rvlc_sf -= 9;
     }
     ics->sf_escapes_present = faad_get1bit(ld);
@@ -11849,7 +11858,8 @@ uint8_t NeaacDecoder::sbr_process_channel(sbr_info* sbr, real_t* channel_buf, qm
             for (k = 0; k < kx_band + bsco_band; k++) { QMF_RE(X[l][k]) = QMF_RE(sbr->Xsbr[ch][l + sbr->tHFAdj][k]); }
             for (k = kx_band + bsco_band; k < min(kx_band + M_band, 63); k++) { QMF_RE(X[l][k]) = QMF_RE(sbr->Xsbr[ch][l + sbr->tHFAdj][k]); }
             for (k = max(kx_band + bsco_band, kx_band + M_band); k < 64; k++) { QMF_RE(X[l][k]) = 0; }
-            QMF_RE(X[l][kx_band - 1 + bsco_band]) += QMF_RE(sbr->Xsbr[ch][l + sbr->tHFAdj][kx_band - 1 + bsco_band]);
+            /* kx_band can be 0 (kx_prev on the first frame's leading slots),  which would make kx_band - 1 + bsco_band index X[l][-1]. There is no band below 0 to add in that case, so skip the overlap. */
+            if (kx_band + bsco_band > 0) { QMF_RE(X[l][kx_band - 1 + bsco_band]) += QMF_RE(sbr->Xsbr[ch][l + sbr->tHFAdj][kx_band - 1 + bsco_band]); }
     #endif
         }
     }

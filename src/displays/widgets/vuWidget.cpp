@@ -13,6 +13,11 @@ VuWidget::~VuWidget() {
         delete _spr;
         _spr = nullptr;
     }
+    if (_labelSpr) {
+        _labelSpr->deleteSprite();
+        delete _labelSpr;
+        _labelSpr = nullptr;
+    }
 #endif
 }
 
@@ -47,18 +52,49 @@ void VuWidget::_recreateSprite() {
 
     _spr->fillSprite(_bgcolor);
 }
+
+static void vu_prepareLabelSprite(LGFX_Sprite*& spr, int16_t width, int16_t height) {
+    if (width <= 0 || height <= 0) { return; }
+
+    if (!spr) {
+        spr = new LGFX_Sprite(&dsp);
+        if (!spr) { return; }
+        spr->setColorDepth(16);
+        spr->setPsram(true);
+        spr->setTextDatum(top_left);
+    }
+
+    if (spr->width() != width || spr->height() != height) {
+        spr->deleteSprite();
+        spr->createSprite(width, height);
+    }
+}
+
+static bool vu_applyLabelFont(LGFX_Sprite* spr, uint8_t textsize) {
+    if (!spr) { return false; }
+    if (textsize == 8 && font_vlw_8) {
+        if (spr->loadFont(font_vlw_8)) {
+            spr->setTextSize(1);
+            return true;
+        }
+    } else if (textsize == 9 && font_vlw_9) {
+        if (spr->loadFont(font_vlw_9)) {
+            spr->setTextSize(1);
+            return true;
+        }
+    }
+
+    spr->setFont(nullptr);
+    spr->setTextSize(2);
+    return false;
+}
 #endif
 
-void VuWidget::init(VU_WidgetConfig wconf,
-                    uint16_t vumaxcolor, uint16_t vumidcolor,
-                    uint16_t vumincolor, uint16_t bgcolor) {
+void VuWidget::init(VU_WidgetConfig wconf, uint16_t vumaxcolor, uint16_t vumidcolor, uint16_t vumincolor, uint16_t bgcolor) {
     init(wconf, wconf, vumaxcolor, vumidcolor, vumincolor, bgcolor);
 }
 
-void VuWidget::init(VU_WidgetConfig wconf,
-                    VU_WidgetConfig wconfBidirectional,
-                    uint16_t vumaxcolor, uint16_t vumidcolor,
-                    uint16_t vumincolor, uint16_t bgcolor) {
+void VuWidget::init(VU_WidgetConfig wconf, VU_WidgetConfig wconfBidirectional, uint16_t vumaxcolor, uint16_t vumidcolor, uint16_t vumincolor, uint16_t bgcolor) {
     WidgetConfig wconf_base = {wconf.left, wconf.top, 1, WA_CENTER};
     Widget::init(wconf_base, bgcolor, bgcolor);
 
@@ -80,6 +116,7 @@ void VuWidget::init(VU_WidgetConfig wconf,
 
 #ifndef DSP_OLED
     _recreateSprite();
+    _labelBoxHeight = 0;
 #endif
 
     _labelsDrawn = false;
@@ -102,6 +139,7 @@ void VuWidget::switchMode(bool bidirectional) {
 
 #ifndef DSP_OLED
     _recreateSprite();
+    _labelBoxHeight = 0;
 #endif
 
     _labelsDrawn = false;
@@ -196,7 +234,7 @@ void VuWidget::_draw() {
         if (peakR > 0) peakR = (peakR > peak_decay_step) ? (peakR - peak_decay_step) : 0;
     }
 
-/*************************************  A VU savok rajzolasa  ***************************************/
+    /*************************************  A VU savok rajzolasa  ***************************************/
     if (_bidirectional) {
 #ifndef DSP_OLED
         _spr->fillSprite(_bgcolor);
@@ -246,31 +284,30 @@ void VuWidget::_draw() {
             _spr->fillRect(x, 0, ledWidth, _vuConf.height, bandColor);
         }
 
-    if (vuPeakEnabled) {
-        const uint16_t peak_color = 0xFFFF;
-        const uint16_t peak_bright = 0xF7FF;
-        const int      peak_width = 1;
+        if (vuPeakEnabled) {
+            const uint16_t peak_color = 0xFFFF;
+            const uint16_t peak_bright = 0xF7FF;
+            const int      peak_width = 1;
 
-        int pxL = (center - MID_HALF) - peakL - peak_width;
-        if (pxL < 0) pxL = 0;
+            int pxL = (center - MID_HALF) - peakL - peak_width;
+            if (pxL < 0) pxL = 0;
 
-        int pxL_shadow = (pxL - 1 < 0) ? 0 : pxL - 1;
-        int pxL_w = (pxL_shadow + peak_width + 2 <= _spr->width()) ? (peak_width + 2) : (_spr->width() - pxL_shadow);
+            int pxL_shadow = (pxL - 1 < 0) ? 0 : pxL - 1;
+            int pxL_w = (pxL_shadow + peak_width + 2 <= _spr->width()) ? (peak_width + 2) : (_spr->width() - pxL_shadow);
 
-        if (pxL_w > 0) { _spr->fillRect(pxL_shadow, 0, pxL_w, _vuConf.height, peak_bright); }
-        _spr->fillRect(pxL, 0, peak_width, _vuConf.height, peak_color);
+            if (pxL_w > 0) { _spr->fillRect(pxL_shadow, 0, pxL_w, _vuConf.height, peak_bright); }
+            _spr->fillRect(pxL, 0, peak_width, _vuConf.height, peak_color);
 
-        int pxR = (center + MID_HALF) + peakR;
-        int maxX = _spr->width() - peak_width;
-        if (pxR > maxX) pxR = maxX;
+            int pxR = (center + MID_HALF) + peakR;
+            int maxX = _spr->width() - peak_width;
+            if (pxR > maxX) pxR = maxX;
 
-        int pxR_shadow = (pxR - 1 < 0) ? 0 : pxR - 1;
-        int pxR_w = (pxR_shadow + peak_width + 2 <= _spr->width()) ? (peak_width + 2) : (_spr->width() - pxR_shadow);
+            int pxR_shadow = (pxR - 1 < 0) ? 0 : pxR - 1;
+            int pxR_w = (pxR_shadow + peak_width + 2 <= _spr->width()) ? (peak_width + 2) : (_spr->width() - pxR_shadow);
 
-        if (pxR_w > 0) { _spr->fillRect(pxR_shadow, 0, pxR_w, _vuConf.height, peak_bright); }
-        _spr->fillRect(pxR, 0, peak_width, _vuConf.height, peak_color);
-    }
-
+            if (pxR_w > 0) { _spr->fillRect(pxR_shadow, 0, pxR_w, _vuConf.height, peak_bright); }
+            _spr->fillRect(pxR, 0, peak_width, _vuConf.height, peak_color);
+        }
         _spr->pushSprite(_vuConf.left, _vuConf.top);
 #endif
     } else {
@@ -337,42 +374,42 @@ void VuWidget::_draw() {
 #endif
         }
 
-    if (vuPeakEnabled) {
-#    ifndef DSP_OLED
-        const uint16_t peak_color = 0xFFFF;
-        const uint16_t peak_bright = 0xF7FF;
-#    else
-        const uint16_t peak_color = 0x000F;
-        const uint16_t peak_bright = BLACK;
-#    endif
-        const int peak_width = 1;
+        if (vuPeakEnabled) {
+#ifndef DSP_OLED
+            const uint16_t peak_color = 0xFFFF;
+            const uint16_t peak_bright = 0xF7FF;
+#else
+            const uint16_t peak_color = 0x000F;
+            const uint16_t peak_bright = BLACK;
+#endif
+            const int peak_width = 1;
 
-        uint16_t drawPeakL = peakL;
-        if (drawPeakL > _vuConf.width - 2) drawPeakL -= 2;
+            uint16_t drawPeakL = peakL;
+            if (drawPeakL > _vuConf.width - 2) drawPeakL -= 2;
 
-        if (drawPeakL > 1 && drawPeakL <= _vuConf.width) {
-#    ifndef DSP_OLED
-        _spr->fillRect(drawPeakL - 1, 0, peak_width + 2, _vuConf.height, peak_bright);
-        _spr->fillRect(drawPeakL, 0, peak_width, _vuConf.height, peak_color);
-#    else
-        dsp.fillRect(drawPeakL - 1 + _vuConf.left, _vuConf.top, peak_width + 1, _vuConf.height, peak_bright);
-        dsp.fillRect(drawPeakL + _vuConf.left, _vuConf.top, peak_width, _vuConf.height, peak_color);
-#    endif
+            if (drawPeakL > 1 && drawPeakL <= _vuConf.width) {
+#ifndef DSP_OLED
+                _spr->fillRect(drawPeakL - 1, 0, peak_width + 2, _vuConf.height, peak_bright);
+                _spr->fillRect(drawPeakL, 0, peak_width, _vuConf.height, peak_color);
+#else
+                dsp.fillRect(drawPeakL - 1 + _vuConf.left, _vuConf.top, peak_width + 1, _vuConf.height, peak_bright);
+                dsp.fillRect(drawPeakL + _vuConf.left, _vuConf.top, peak_width, _vuConf.height, peak_color);
+#endif
+            }
+
+            uint16_t drawPeakR = peakR;
+            if (drawPeakR > _vuConf.width - 2) drawPeakR -= 2;
+
+            if (drawPeakR > 1 && drawPeakR <= _vuConf.width) {
+#ifndef DSP_OLED
+                _spr->fillRect(drawPeakR - 1, _vuConf.height + _vuConf.space, peak_width + 2, _vuConf.height, peak_bright);
+                _spr->fillRect(drawPeakR, _vuConf.height + _vuConf.space, peak_width, _vuConf.height, peak_color);
+#else
+                dsp.fillRect(drawPeakR - 1 + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, peak_width + 1, _vuConf.height, peak_bright);
+                dsp.fillRect(drawPeakR + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, peak_width, _vuConf.height, peak_color);
+#endif
+            }
         }
-
-        uint16_t drawPeakR = peakR;
-        if (drawPeakR > _vuConf.width - 2) drawPeakR -= 2;
-
-        if (drawPeakR > 1 && drawPeakR <= _vuConf.width) {
-#    ifndef DSP_OLED
-        _spr->fillRect(drawPeakR - 1, _vuConf.height + _vuConf.space, peak_width + 2, _vuConf.height, peak_bright);
-        _spr->fillRect(drawPeakR, _vuConf.height + _vuConf.space, peak_width, _vuConf.height, peak_color);
-#    else
-        dsp.fillRect(drawPeakR - 1 + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, peak_width + 1, _vuConf.height, peak_bright);
-        dsp.fillRect(drawPeakR + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, peak_width, _vuConf.height, peak_color);
-#    endif
-        }
-    }
 
 #ifndef DSP_OLED
         _spr->pushSprite(_vuConf.left, _vuConf.top);
@@ -388,76 +425,110 @@ void VuWidget::_draw() {
             const int MID_HALF = _vuConf.space / 2;
 
             int label_left_L = (sprite_center_on_screen - MID_HALF) - _vuConf.labelwidth;
-            int label_left_R = (sprite_center_on_screen + MID_HALF);
             int labelTop = _vuConf.top - _vuConf.labelheight - 2;
 
-            bool fontLoaded = false;
+            const int labelWidth = (_vuConf.labelwidth * 2) + _vuConf.space;
+            vu_prepareLabelSprite(_labelSpr, labelWidth, _vuConf.labelheight);
+            if (!_labelSpr || _labelSpr->width() == 0 || _labelSpr->height() == 0) { return; }
 
-            if (_vuConf.textsize == 9 && font_vlw_9) {
-                if (dsp.loadFont(font_vlw_9)) {
-                    fontLoaded = true;
-                    dsp.setTextSize(1);
-                } else {
-                    dsp.setFont(nullptr);
-                    dsp.setTextSize(2);
-                }
-            } else {
-                dsp.setFont(nullptr);
-                dsp.setTextSize(2);
+            bool      fontLoaded = vu_applyLabelFont(_labelSpr, _vuConf.textsize);
+           #if DSP_MODEL == DSP_ILI9341
+            const int labelPadTop = 0;
+            #else
+            const int labelPadTop = 2;
+            #endif
+            const int labelPadBottom = 0;
+            int       labelBoxHeight = _vuConf.labelheight;
+            const int textH = _labelSpr->fontHeight();
+            if (textH > 0) {
+                const int minNeeded = textH + labelPadTop + labelPadBottom;
+                if (minNeeded > labelBoxHeight) { labelBoxHeight = minNeeded; }
             }
 
-            int y_center = labelTop + (_vuConf.labelheight / 2);
-            if (fontLoaded) {
-                y_center += 1;
+            if (_labelSpr->height() != labelBoxHeight) {
+                vu_prepareLabelSprite(_labelSpr, labelWidth, labelBoxHeight);
+                if (!_labelSpr || _labelSpr->width() == 0 || _labelSpr->height() == 0) { return; }
+                fontLoaded = vu_applyLabelFont(_labelSpr, _vuConf.textsize);
             }
-            dsp.setTextColor(config.theme.vulrtext);
-            dsp.setTextDatum(MC_DATUM);
 
-            dsp.drawRect(label_left_L, labelTop, _vuConf.labelwidth, _vuConf.labelheight, config.theme.vulrbox);
-            dsp.drawString("L", label_left_L + (_vuConf.labelwidth / 2), y_center);
+            _labelSpr->fillSprite(config.theme.background);
+            _labelBoxHeight = static_cast<uint16_t>(labelBoxHeight);
+            labelTop = _vuConf.top - labelBoxHeight - 2;
 
-            dsp.drawRect(label_left_R, labelTop, _vuConf.labelwidth, _vuConf.labelheight, config.theme.vulrbox);
-            dsp.drawString("R", label_left_R + (_vuConf.labelwidth / 2), y_center);
+            _labelSpr->setTextColor(config.theme.vulrtext, config.theme.background);
+            _labelSpr->setTextDatum(top_center);
+            const int localYText = labelPadTop;
+
+            _labelSpr->drawString("L", _vuConf.labelwidth / 2, localYText);
+            _labelSpr->drawRect(0, 0, _vuConf.labelwidth, labelBoxHeight, config.theme.vulrbox);
+
+            _labelSpr->drawString("R", _vuConf.labelwidth + _vuConf.space + (_vuConf.labelwidth / 2), localYText);
+            _labelSpr->drawRect(_vuConf.labelwidth + _vuConf.space, 0, _vuConf.labelwidth, labelBoxHeight, config.theme.vulrbox);
+
+            _labelSpr->pushSprite(label_left_L, labelTop);
 
             _labelsDrawn = true;
 
-            if (fontLoaded) { dsp.unloadFont(); }
+            if (fontLoaded) { _labelSpr->unloadFont(); }
 #endif
         } else {
 #ifndef DSP_OLED
             int  label_left = _vuConf.left - _vuConf.labelwidth - 4;
             bool fontLoaded = false;
 
-            if (_vuConf.textsize == 9 && font_vlw_9) {
-                if (dsp.loadFont(font_vlw_9)) {
-                    fontLoaded = true;
-                    dsp.setTextSize(1);
-                } else {
-                    dsp.setFont(nullptr);
-                    dsp.setTextSize(2);
-                }
-            } else {
-                dsp.setFont(nullptr);
-                dsp.setTextSize(2);
-            }
-
             if (label_left >= 0) {
-                int top_L = _vuConf.top - (_vuConf.labelheight - _vuConf.height);
+                  #if DSP_MODEL == DSP_ILI9341
+                const int labelPadTop = 0;
+                #else
+                const int labelPadTop = 1;
+                #endif
+                const int labelPadBottom = 0;
+                int       labelBoxHeight = _vuConf.labelheight;
+
+                vu_prepareLabelSprite(_labelSpr, _vuConf.labelwidth, (_vuConf.labelheight * 2) + _vuConf.space);
+                if (!_labelSpr || _labelSpr->width() == 0 || _labelSpr->height() == 0) { return; }
+
+                fontLoaded = vu_applyLabelFont(_labelSpr, _vuConf.textsize);
+                const int textH = _labelSpr->fontHeight();
+                if (textH > 0) {
+                    const int minNeeded = textH + labelPadTop + labelPadBottom;
+                    if (minNeeded > labelBoxHeight) { labelBoxHeight = minNeeded; }
+                }
+
+                const int neededSpriteHeight = (labelBoxHeight * 2) + _vuConf.space;
+                if (_labelSpr->height() != neededSpriteHeight) {
+                    vu_prepareLabelSprite(_labelSpr, _vuConf.labelwidth, neededSpriteHeight);
+                    if (!_labelSpr || _labelSpr->width() == 0 || _labelSpr->height() == 0) { return; }
+                    fontLoaded = vu_applyLabelFont(_labelSpr, _vuConf.textsize);
+                }
+
+                _labelBoxHeight = static_cast<uint16_t>(labelBoxHeight);
+
+                int top_L = _vuConf.top - (labelBoxHeight - _vuConf.height);
                 int top_R = _vuConf.top + _vuConf.height + _vuConf.space;
 
-                dsp.setTextColor(config.theme.vulrtext);
-                dsp.setTextDatum(MC_DATUM);
+                (void)top_R;
 
-                dsp.drawRect(label_left, top_L, _vuConf.labelwidth, _vuConf.labelheight, config.theme.vulrbox);
-                dsp.drawString("L", label_left + _vuConf.labelwidth / 2, top_L + _vuConf.labelheight / 2 + 1);
+                _labelSpr->fillSprite(config.theme.background);
 
-                dsp.drawRect(label_left, top_R, _vuConf.labelwidth, _vuConf.labelheight, config.theme.vulrbox);
-                dsp.drawString("R", label_left + _vuConf.labelwidth / 2, top_R + _vuConf.labelheight / 2 + 1);
+                _labelSpr->setTextColor(config.theme.vulrtext, config.theme.background);
+                _labelSpr->setTextDatum(top_center);
+
+                const int localTopL = 0;
+                const int localTopR = labelBoxHeight + _vuConf.space;
+
+                _labelSpr->drawString("L", _vuConf.labelwidth / 2, localTopL + labelPadTop);
+                _labelSpr->drawRect(0, localTopL, _vuConf.labelwidth, labelBoxHeight, config.theme.vulrbox);
+
+                _labelSpr->drawString("R", _vuConf.labelwidth / 2, localTopR + labelPadTop);
+                _labelSpr->drawRect(0, localTopR, _vuConf.labelwidth, labelBoxHeight, config.theme.vulrbox);
+
+                _labelSpr->pushSprite(label_left, top_L);
 
                 _labelsDrawn = true;
             }
 
-            if (fontLoaded) { dsp.unloadFont(); }
+            if (fontLoaded && _labelSpr) { _labelSpr->unloadFont(); }
 #else
             dsp.setTextColor(0xF);
             dsp.setTextSize(1);
@@ -489,6 +560,8 @@ void VuWidget::loop() {
 
 void VuWidget::_clear() {
 #ifndef DSP_OLED
+    const int clearLabelHeight = max<int>(_vuConf.labelheight, _labelBoxHeight);
+
     int clearW = 0;
     int clearH = 0;
 
@@ -519,18 +592,18 @@ void VuWidget::_clear() {
 
         const int MID_HALF = _vuConf.space / 2;
         int       label_left_L = (sprite_center_on_screen - MID_HALF) - _vuConf.labelwidth;
-        int       labelTop = _vuConf.top - _vuConf.labelheight - 2;
+        int       labelTop = _vuConf.top - clearLabelHeight - 2;
         int       total_width = 2 * _vuConf.labelwidth + _vuConf.space;
 
-        dsp.fillRect(label_left_L, labelTop, total_width, _vuConf.labelheight, config.theme.background);
+        dsp.fillRect(label_left_L, labelTop, total_width, clearLabelHeight, config.theme.background);
     } else {
         int label_left = _vuConf.left - _vuConf.labelwidth - 4;
 
         if (label_left >= 0) {
-            int top_L = _vuConf.top - (_vuConf.labelheight - _vuConf.height);
+            int top_L = _vuConf.top - (clearLabelHeight - _vuConf.height);
             int top_R = _vuConf.top + _vuConf.height + _vuConf.space;
-            dsp.fillRect(label_left, top_L, _vuConf.labelwidth, _vuConf.labelheight, config.theme.background);
-            dsp.fillRect(label_left, top_R, _vuConf.labelwidth, _vuConf.labelheight, config.theme.background);
+            dsp.fillRect(label_left, top_L, _vuConf.labelwidth, clearLabelHeight, config.theme.background);
+            dsp.fillRect(label_left, top_R, _vuConf.labelwidth, clearLabelHeight, config.theme.background);
         }
     }
 
@@ -540,6 +613,16 @@ void VuWidget::_clear() {
 #endif
 
     _labelsDrawn = false;
+
+#ifndef DSP_OLED
+    if (_labelSpr) {
+        _labelSpr->deleteSprite();
+        delete _labelSpr;
+        _labelSpr = nullptr;
+    }
+
+    _labelBoxHeight = 0;
+#endif
 }
 
 void VuWidget::setLabelsDrawn(bool value) {

@@ -20,10 +20,13 @@
 **/
 
 // ESP32 Version 29.07.2024
-// updated:      05.10.2025
+// updated:      18.06.2026
 
 #pragma once
-#include "../../Audio.h"
+
+#include "aac_structs.h"
+#include "aac_tables.h"
+#include "aac_defines.h"
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -31,10 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-#include "defines.h"
-#include "settings.h"
-#include "structs.h"
-#include "tables.h"
+
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 class NeaacDecoder {
@@ -48,7 +48,7 @@ class NeaacDecoder {
     char                     NeAACDecInit2(NeAACDecHandle hpDecoder, uint8_t* pBuffer, uint32_t SizeOfDecoderSpecificInfo, uint32_t* samplerate, uint8_t* channels);
     long                     NeAACDecInit(NeAACDecHandle hpDecoder, uint8_t* buffer, uint32_t buffer_size, uint32_t* samplerate, uint8_t* channels);
     void*                    NeAACDecDecode2(NeAACDecHandle hpDecoder, NeAACDecFrameInfo* hInfo, uint8_t* buffer, uint32_t buffer_size, void** sample_buffer, uint32_t sample_buffer_size);
-    const char*              NeAACDecGetErrorMessage(const uint8_t errcode);
+    error_info_t             NeAACDecGetErrorMessage(const uint8_t errcode);
     uint8_t                  get_sr_index(const uint32_t samplerate);
 
   private:
@@ -417,9 +417,9 @@ class NeaacDecoder {
     int16_t sbr_huff_dec(bitfile* ld, sbr_huff_tab t_huff);
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 //  Macro for comfortable calls
-#define AAC_LOG_ERROR(fmt, ...)   Audio::AUDIO_LOG_IMPL(1, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_WARN(fmt, ...)    Audio::AUDIO_LOG_IMPL(2, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_INFO(fmt, ...)    Audio::AUDIO_LOG_IMPL(3, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_DEBUG(fmt, ...)   Audio::AUDIO_LOG_IMPL(4, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_VERBOSE(fmt, ...) Audio::AUDIO_LOG_IMPL(5, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+// #define AAC_LOG_ERROR(fmt, ...)   Audio::AUDIO_LOG_IMPL(1, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+// #define AAC_LOG_WARN(fmt, ...)    Audio::AUDIO_LOG_IMPL(2, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+// #define AAC_LOG_INFO(fmt, ...)    Audio::AUDIO_LOG_IMPL(3, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+// #define AAC_LOG_DEBUG(fmt, ...)   Audio::AUDIO_LOG_IMPL(4, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+// #define AAC_LOG_VERBOSE(fmt, ...) Audio::AUDIO_LOG_IMPL(5, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
 };

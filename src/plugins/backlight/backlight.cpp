@@ -127,11 +127,7 @@ void BacklightPlugin::on_stop_play() {
 }
 
 void BacklightPlugin::on_track_change() {
-    if (isDimmed() || isFading()) {
-        wake();
-    } else {
-        activity();
-    }
+    // wake();
 }
 
 void BacklightPlugin::on_btn_click(controlEvt_e& btnid) {

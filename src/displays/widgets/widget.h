@@ -41,6 +41,7 @@ class Widget {
     }
     void unlock() { _locked = false; }
     bool locked() { return _locked; }
+    bool isActive() const { return _active; }
     /* Widget átmozgatása.*/
     void moveTo(MoveConfig mv) {
         if (mv.width < 0) { return; }

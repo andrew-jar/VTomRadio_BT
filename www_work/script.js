@@ -254,6 +254,9 @@ function setupElement(id,value){
   if(id==='encind') {
     updateIndependentEncodersUi(false);
   }
+  if(id==='vu' || id==='vubox' || id==='rssiastext') {
+    updateRssiAsTextUi(false);
+  }
 }
 
 function updateClockFontMonoUi(forceSync){
@@ -284,6 +287,32 @@ function updateIndependentEncodersUi(forceSync){
     independentToggle.classList.remove('checked');
     if(forceSync){
       wsSend('encodersindependent=0');
+    }
+  }
+}
+
+function isVuBidirectionalMode(){
+  const vuToggle = getId('vu');
+  const vuBidirectionalToggle = getId('vubox');
+  if(!vuToggle || !vuBidirectionalToggle) return false;
+
+  const vuEnabled = vuToggle.classList.contains('checked');
+  const vuBidirectional = vuBidirectionalToggle.classList.contains('checked');
+  return vuEnabled && vuBidirectional;
+}
+
+function updateRssiAsTextUi(forceSync){
+  const rssiToggle = getId('rssiastext');
+  if(!rssiToggle) return;
+
+  const lockRssiAsText = isVuBidirectionalMode();
+  rssiToggle.classList.toggle('disabled', lockRssiAsText);
+  rssiToggle.attr('aria-disabled', lockRssiAsText ? 'true' : 'false');
+
+  if(lockRssiAsText && rssiToggle.classList.contains('checked')){
+    rssiToggle.classList.remove('checked');
+    if(forceSync){
+      wsSend('rssiastext=0');
     }
   }
 }
@@ -487,6 +516,9 @@ function checkboxClick(cb, command){
   if(cb.classList.contains('disabled')) return;
   cb.classList.toggle("checked");
   wsSend(`${command}=${cb.classList.contains("checked")?1:0}`);
+  if(command === 'vumeter' || command === 'vubox' || command === 'rssiastext') {
+    updateRssiAsTextUi(true);
+  }
 }
 function sliderInput(sl, command){
   wsSend(`${command}=${sl.value}`);
@@ -598,6 +630,25 @@ function importSettings(file){
     processLine();
   };
   reader.readAsText(file);
+}
+function importPresets(file){
+  if(!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  fetch('/presets.csv', {
+    method: 'POST',
+    body: formData
+  }).then(async (response) => {
+    if(response.ok) return;
+    let message = 'Import failed.';
+    try {
+      const data = await response.json();
+      if(data && data.error) message = 'Import failed: ' + data.error;
+    } catch(_) {}
+    alert(message);
+  }).catch(() => {
+    alert('Network error while importing presets.');
+  });
 }
 function applyDateFormat(){
   const sel = getId("dateformat");
@@ -778,6 +829,13 @@ function continueLoading(mode){
             this.value='';
           });
         }
+        const presetsImportFile=getId('presets-import-file');
+        if(presetsImportFile){
+          presetsImportFile.addEventListener('change',function(){
+            if(this.files&&this.files[0]) importPresets(this.files[0]);
+            this.value='';
+          });
+        }
       });
     }
     if(pathname=='/update.html'){
@@ -794,17 +852,33 @@ function continueLoading(mode){
     }
     if(pathname=='/ir.html'){
       document.title = `${yoTitle} - IR Recorder`;
-      fetch(`irrecord.html?${fwVersion}`).then(response => response.text()).then(ircontent => {
+      fetch(`irrecord.html?${fwVersion}`).then(response => response.arrayBuffer()).then(buf => {
+        const bytes = new Uint8Array(buf || []);
+        let ircontent = '';
+        if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+          ircontent = new TextDecoder('utf-16le').decode(bytes.subarray(2));
+        } else if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+          ircontent = new TextDecoder('utf-16be').decode(bytes.subarray(2));
+        } else {
+          ircontent = new TextDecoder('utf-8').decode(bytes);
+        }
         loadCSS(`ir.css?${fwVersion}`);
-        getId('content').innerHTML = ircontent; 
+        const contentEl = getId('content');
+        if (!contentEl) {
+          hideSpinner();
+          return;
+        }
+        contentEl.innerHTML = ircontent;
         loadJS(`ir.js?${fwVersion}`, () => {
           fetch('logo.svg').then(response => response.text()).then(svg => { 
-            getId('logo').innerHTML = svg;
+            const logoEl = getId('logo');
+            if (logoEl) logoEl.innerHTML = svg;
             initControls();
             hideSpinner();
           });
         });
-        getId("version").innerText=` | v${fwVersion}`;
+        const versionEl = getId("version");
+        if (versionEl) versionEl.innerText=` | v${fwVersion}`;
       });
     }
     if (window.location.pathname === '/dlna.html') {  //DLNA mod
@@ -914,6 +988,8 @@ function continueLoading(mode){
           case "wifiupload": submitWiFi(); break;
           case "settingsexport": exportSettings(); break;
           case "settingsimport": getId("settings-import-file").click(); break;
+          case "presetsexport": window.open(`http://${hostname}/presets.csv`+"?"+new Date().getTime()); break;
+          case "presetsimport": getId("presets-import-file").click(); break;
           case "reboot": wsSend("reboot=1"); rebootSystem('Rebooting...'); break;
           case "format": wsSend("format=1"); rebootSystem('Format SPIFFS. Rebooting...'); break;
           case "reset":  wsSend("reset=1");  rebootSystem('Reset settings. Rebooting...'); break;

@@ -1,4 +1,4 @@
-﻿#include "Arduino.h"
+#include "Arduino.h"
 #include "options.h"
 #include "WiFi.h"
 #include "time.h"
@@ -8,6 +8,7 @@
 #include "player.h"
 #include "network.h"
 #include "netserver.h"
+#include "btbridge.h"
 #include "timekeeper.h"
 #include "../pluginsManager/pluginsManager.h"
 #include "../displays/display_select.h"
@@ -38,6 +39,10 @@ Nextion nextion;
 #    define DSP_TASK_DELAY pdMS_TO_TICKS(30) // cap for 50 fps
 #endif
 
+#ifndef DISPLAY_QUEUE_LENGTH
+#    define DISPLAY_QUEUE_LENGTH 20
+#endif
+
 #define DSP_QUEUE_TICKS 0
 
 #ifndef DSQ_SEND_DELAY
@@ -48,17 +53,13 @@ QueueHandle_t displayQueue;
 
 static void purgeQueuedRequestType(displayRequestType_e type) {
     if (displayQueue == NULL) { return; }
-    requestParams_t keep[8];
+    requestParams_t keep[DISPLAY_QUEUE_LENGTH];
     size_t          keepCount = 0;
     requestParams_t item;
     while (xQueueReceive(displayQueue, &item, 0) == pdTRUE) {
-        if (item.type != type && keepCount < (sizeof(keep) / sizeof(keep[0]))) {
-            keep[keepCount++] = item;
-        }
+        if (item.type != type && keepCount < (sizeof(keep) / sizeof(keep[0]))) { keep[keepCount++] = item; }
     }
-    for (size_t i = 0; i < keepCount; i++) {
-        xQueueSend(displayQueue, &keep[i], 0);
-    }
+    for (size_t i = 0; i < keepCount; i++) { xQueueSend(displayQueue, &keep[i], 0); }
 }
 
 void Display::purgeQueuedRequestType(displayRequestType_e type) {
@@ -121,8 +122,9 @@ Display::~Display() {
     delete _meta;
     delete _title1;
     delete _title2;
-    delete _btbox;
     delete _plcurrent;
+    delete _bticon;
+    delete _btbox;
 }
 
 void Display::init() {
@@ -138,16 +140,14 @@ void Display::init() {
     dsp.initDisplay(); // void DspCore::initDisplay() - Ez a függvény hívja meg a display inicializálását, ami a DspCore osztályban van definiálva. Ez a függvény felelős a kijelző beállításáért és
                        // előkészítéséért a használatra.
 
-
-
     if (!loadFonts()) {
-        Serial.println("[FONT] HIBA: Egy vagy tobb kotelezo font hianyzik a LittleFS-rol!");
+        Serial.println("[FONT] ERROR: One or more binding fonts are missing from LittleFS!");
     } else {
-        Serial.println("[FONT] Kotelezo fontok sikeresen betoltve.");
+        Serial.println("[FONT] Binding fonts successfully loaded.");
     }
 
     // --- QUEUE ---
-    displayQueue = xQueueCreate(20, sizeof(requestParams_t)); // Increased from 5 to 20 for better handling of rapid channel switches
+    displayQueue = xQueueCreate(DISPLAY_QUEUE_LENGTH, sizeof(requestParams_t)); // Increased from 5 to 20 for better handling of rapid channel switches
     while (displayQueue == NULL) { delay(1); }
     _pager = new Pager();
     _footer = new Page();
@@ -225,19 +225,24 @@ void Display::_buildPager() {
 #    ifndef HIDE_RSSI
     _wifiwidget = new WifiWidget(&dsp, &wifiConf);
     _rssibox = new textBoxWidget(rssiBoxConf, 16, false, config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border);
-    if (config.store.rssiAsText && !config.store.vuBidirectional) {
+    if (config.store.rssiAsText) {
         _wifiwidget->lock();
     } else {
         _rssibox->lock();
     }
 #    endif
 
-#    if KCX_BT_LINK >= 0
-    _btbox = new textBoxWidget(btBoxConf, 8, false, config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border);
-    if (_btbox) {
-        _btbox->setText("BT");
-        _btbox->lock(true);
+#    ifdef USE_BT_BRIDGE
+    _bticon = new ImageWidget(&dsp, &btIconConf, "/images/bt_22x18.png");
+#        if DSP_WIDTH > 320
+    if (DSP_WIDTH >= 480) {
+        _bticon->setImagePath("/images/bt_30x25.png");
     }
+#        endif
+    _bticon->lock();
+    _bticon->setActive(false, true);
+    _btbox = new textBoxWidget(btBoxConf, 8, false, config.theme.ch, config.theme.ch_bg, config.theme.ch_border);
+    _btbox->lock();
 #    endif
 
     _nums->init(numConf, 10, false, config.theme.digit, config.theme.background);
@@ -250,6 +255,8 @@ void Display::_buildPager() {
     if (_chbox) { _footer->addWidget(_chbox); }
     if (_volwidget) { _footer->addWidget(_volwidget); }
     if (_ipbox) { _footer->addWidget(_ipbox); }
+    if (_bticon) { _footer->addWidget(_bticon); }
+    if (_btbox) { _footer->addWidget(_btbox); }
     if (_wifiwidget) { _footer->addWidget(_wifiwidget); }
     if (_rssibox) { _footer->addWidget(_rssibox); }
     if (_heapbar) { _footer->addWidget(_heapbar); }
@@ -258,10 +265,6 @@ void Display::_buildPager() {
     pages[PG_PLAYER]->addWidget(_title1);
     if (_title2) { pages[PG_PLAYER]->addWidget(_title2); }
     if (_weather) { pages[PG_PLAYER]->addWidget(_weather); }
-
-#    if KCX_BT_LINK >= 0
-    if (_btbox) { pages[PG_PLAYER]->addWidget(_btbox); }
-#    endif
 
     _bitratewidget = new BitrateWidget(bitrateConf, config.theme.bitrate, config.theme.background);
     _bitratewidget->setActive(true);
@@ -347,7 +350,7 @@ void Display::_start() {
 #    ifndef HIDE_RSSI
     _applyRssiMode();
 #    endif
-    _setBtConnected();
+    _refreshStatusWidgets();
     if (_chbox) {
         _chbox->setText(config.lastStation(), "Ch:%d."); // Beállítja a csatorna számát a widgetnek.
     }
@@ -383,54 +386,108 @@ void Display::_refreshThemeColors() {
     if (_ipbox) { _ipbox->setColors(config.theme.ip, config.theme.ip_bg, config.theme.ip_border); }
     if (_chbox) { _chbox->setColors(config.theme.ch, config.theme.ch_bg, config.theme.ch_border); }
     if (_rssibox) { _rssibox->setColors(config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border); }
-    if (_btbox) { _btbox->setColors(config.theme.rssi, config.theme.rssi_bg, config.theme.rssi_border); }
+    if (_btbox) { _btbox->setColors(config.theme.ch, config.theme.ch_bg, config.theme.ch_border); }
     if (_heapbar) { _heapbar->setColors(config.theme.buffer, config.theme.background); }
-}
-
-void Display::_setBtConnected() {
-#    if KCX_BT_LINK >= 0
-    const bool connected = digitalRead(KCX_BT_LINK);
-    const bool showBtBox = connected;
-
-    if (_btbox) {
-        if (showBtBox) {
-            _btbox->setText("BT");
-            if (_btbox->locked()) { _btbox->lock(false); }
-        } else {
-            if (!_btbox->locked()) { _btbox->lock(true); }
-        }
-    }
-#    endif
 }
 
 void Display::_applyRssiMode() {
 #    ifndef HIDE_RSSI
-    const int currentRssi = WiFi.RSSI();
-    const bool rssiTextMode = config.store.rssiAsText && !config.store.vuBidirectional;
+    _refreshStatusWidgets();
+#    endif
+}
 
-    if (rssiTextMode) {
-        if (_wifiwidget && !_wifiwidget->locked()) { _wifiwidget->lock(true); }
-        if (_rssibox) {
-            if (_rssibox->locked()) { _rssibox->lock(false); }
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%d dBm", currentRssi);
-            _rssibox->setText(buf);
+void Display::_refreshStatusWidgets() {
+    const bool footerWidgetsVisible =
+        (_mode == PLAYER || _mode == VOL || _mode == NUMBERS || _mode == UPDATING || _mode == INFO || _mode == SETTINGS || _mode == TIMEZONE
+         || _mode == WIFI || _mode == SLEEPING || _mode == SDCHANGE);
+    const bool btConnected = btBridge.connected();
+    const bool useRssiBox = !config.store.vuBidirectional && config.store.rssiAsText;
+    const bool showBtIcon = footerWidgetsVisible && btConnected && !useRssiBox;
+    const bool showBtBox = footerWidgetsVisible && btConnected && useRssiBox;
+    const bool showWifiIcon = footerWidgetsVisible && !useRssiBox;
+    const bool showRssiBox = footerWidgetsVisible && useRssiBox;
+
+    _btConnected = btConnected;
+
+    // Track visibility changes so we do not clear/redraw status widgets on every refresh.
+    static bool s_statusWidgetsInit = false;
+    static bool s_btIconVisible = false;
+    static bool s_btBoxVisible = false;
+
+    if (!s_statusWidgetsInit) {
+        // Force first pass to apply actual desired visibility after boot/screen init.
+        s_statusWidgetsInit = true;
+        s_btIconVisible = !showBtIcon;
+        s_btBoxVisible = !showBtBox;
+    }
+
+    const bool btIconVisibilityChanged = (showBtIcon != s_btIconVisible);
+    const bool btBoxVisibilityChanged = (showBtBox != s_btBoxVisible);
+    bool wifiModeChanged = false;
+
+#    ifndef HIDE_RSSI
+    if (_wifiwidget) {
+        if (_wifiwidget->locked() == showWifiIcon) {
+            _wifiwidget->lock(!showWifiIcon);
+            wifiModeChanged = true;
         }
-    } else {
-        if (_rssibox && !_rssibox->locked()) { _rssibox->lock(true); }
-        if (_wifiwidget) {
-            _wifiwidget->setRSSI(currentRssi);
-            if (_wifiwidget->locked()) { _wifiwidget->lock(false); }
+        if (showWifiIcon) {
+            _wifiwidget->setRSSI(WiFi.RSSI());
         }
     }
 
-    // BT is drawn after RSSI/WiFi lock transitions so rssiBox clear does not erase BT icon.
-    _setBtConnected();
+    if (_rssibox) {
+        if (_rssibox->locked() == showRssiBox) {
+            _rssibox->lock(!showRssiBox);
+        }
+        if (showRssiBox) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%d dBm", WiFi.RSSI());
+            _rssibox->setText(buf);
+        }
+    }
+#    endif
+
+    if (_bticon) {
+        const bool btIconNeedsSync = (showBtIcon != s_btIconVisible) || (_bticon->isActive() != showBtIcon);
+        if (btIconNeedsSync) {
+            s_btIconVisible = showBtIcon;
+            if (showBtIcon) {
+                _bticon->setActive(true);
+                if (_bticon->locked()) { _bticon->lock(false); }
+            } else {
+                _bticon->setActive(false, true);
+                if (!_bticon->locked()) { _bticon->lock(true); }
+            }
+        }
+    }
+
+    if (_btbox) {
+        const bool btBoxNeedsSync = (showBtBox != s_btBoxVisible) || (_btbox->isActive() != showBtBox);
+        if (btBoxNeedsSync) {
+            s_btBoxVisible = showBtBox;
+            if (showBtBox) {
+                _btbox->setActive(true);
+                if (_btbox->locked()) { _btbox->lock(false); }
+            } else {
+                _btbox->setActive(false, true);
+                if (!_btbox->locked()) { _btbox->lock(true); }
+            }
+        }
+        if (showBtBox) {
+            _btbox->setText("BT");
+        }
+    }
+
+#    ifndef HIDE_RSSI
+    if (_wifiwidget && showWifiIcon && !_wifiwidget->locked() && (wifiModeChanged || btIconVisibilityChanged || btBoxVisibilityChanged)) {
+        // One-shot redraw when RSSI representation or BT widget visibility changes.
+        _wifiwidget->invalidate();
+    }
 #    endif
 }
 
 void Display::_swichMode(displayMode_e newmode) {
-    Serial.printf("Display::_swichMode: %d\n", newmode);
 #    ifdef USE_NEXTION
     nextion.putRequest({NEWMODE, newmode});
 #    endif
@@ -451,9 +508,7 @@ void Display::_swichMode(displayMode_e newmode) {
         config.isScreensaver = false;
         _pager->setPage(pages[PG_PLAYER]);
         if (_nums) { _nums->setText(""); }
-        if (_vuwidget) {
-            _vuwidget->lock(!config.store.vumeter);
-        }
+        if (_vuwidget) { _vuwidget->lock(!config.store.vumeter); }
         config.setDspOn(config.store.dspon, false);
         pm.on_display_player();
     }
@@ -500,7 +555,6 @@ void Display::_swichMode(displayMode_e newmode) {
     }
 #    endif
     if (newmode == STATIONS) {
-        _refreshThemeColors();
         // Drop stale player-mode draw requests so they cannot paint one extra old frame.
         resetQueue();
         // Prevent ScrollWidget pre-draw during page activation to avoid an empty-row flash.
@@ -508,6 +562,7 @@ void Display::_swichMode(displayMode_e newmode) {
         // Ensure no stale current-row text is visible before the fresh playlist draw.
         _plcurrent->setText("");
         _pager->setPage(pages[PG_PLAYLIST], true);
+        _refreshThemeColors();
         currentPlItem = config.lastStation();
         // Átadjuk a scrollwidgetet, ha eddig nem tettük meg
         _plwidget->init(_plcurrent);
@@ -533,10 +588,40 @@ void Display::_drawNextStationNum(uint16_t num) {
 
 void Display::putRequest(displayRequestType_e type, int payload) {
     if (displayQueue == NULL) { return; }
+    switch (type) {
+        case DRAWPLAYLIST:
+        case NEWTITLE:
+        case NEWSTATION:
+        case DBITRATE:
+        case PSTART:
+        case PSTOP:
+        case AUDIOINFO:
+        case DSPRSSI:
+        case DRAWVOL:
+            purgeQueuedRequestType(type);
+            break;
+        default:
+            break;
+    }
     requestParams_t request;
     request.type = type;
     request.payload = payload;
-    xQueueSend(displayQueue, &request, DSQ_SEND_DELAY);
+
+    // Never block producer paths on display queue pressure; blocking here can stall audio/network work.
+    BaseType_t queued = xQueueSend(displayQueue, &request, 0);
+    if (queued != pdTRUE) {
+        // First try to remove stale same-type requests, then retry immediate enqueue.
+        purgeQueuedRequestType(type);
+        queued = xQueueSend(displayQueue, &request, 0);
+
+        // Keep mode/playback state transitions responsive even when queue is saturated.
+        if (queued != pdTRUE && (type == NEWMODE || type == PSTART || type == PSTOP)) {
+            requestParams_t dropped;
+            if (xQueueReceive(displayQueue, &dropped, 0) == pdTRUE) {
+                xQueueSend(displayQueue, &request, 0);
+            }
+        }
+    }
 #    ifdef USE_NEXTION
     nextion.putRequest(request);
 #    endif
@@ -561,12 +646,13 @@ void Display::applyVuModeChange() {
     if (!_vuwidget) { return; }
     _vuwidget->switchMode(config.store.vuBidirectional);
     _layoutChange(player.isRunning());
-    _applyRssiMode();
 }
 
 void Display::invalidateThemeWidgets() {
-    if (!_wifiwidget || _locked) { return; }
-    _wifiwidget->invalidate();
+    if (_locked) { return; }
+    if (_wifiwidget) { _wifiwidget->invalidate(); }
+    if (_bticon) { _bticon->setColors(0, config.theme.background); }
+    if (_btbox) { _btbox->setColors(config.theme.ch, config.theme.ch_bg, config.theme.ch_border); }
 }
 
 void Display::loop() {
@@ -579,6 +665,24 @@ void Display::loop() {
         _plcurrent->loop(); // Ez hajtja az X irányú görgetést a lejátszási listában, ahol a hosszabb szövegek vannak.
     }
     if (displayQueue == NULL || _locked) { return; }
+
+    requestParams_t pendingRequest;
+    const bool hasPendingRequest = xQueuePeek(displayQueue, &pendingRequest, 0) == pdTRUE;
+    const bool prioritizePageSwitch =
+        hasPendingRequest && pendingRequest.type == NEWMODE
+        && (pendingRequest.payload == STATIONS || pendingRequest.payload == PRESETS || pendingRequest.payload == SCREENSAVER
+            || pendingRequest.payload == SCREENBLANK);
+
+    if (prioritizePageSwitch && xQueueReceive(displayQueue, &pendingRequest, 0) == pdTRUE) {
+        bool pm_result = true;
+        pm.on_display_queue(pendingRequest, pm_result);
+        if (pm_result && pendingRequest.type == NEWMODE) {
+            _swichMode((displayMode_e)pendingRequest.payload);
+        }
+        return;
+    }
+
+    _refreshStatusWidgets();
     _pager->loop();
 #    ifdef USE_NEXTION
     nextion.loop();
@@ -646,7 +750,6 @@ void Display::loop() {
                         _vuwidget->lock(!config.store.vumeter);
                         _layoutChange(player.isRunning());
                     }
-                    _applyRssiMode();
                     break;
 
                 case SWITCHVUMODE: applyVuModeChange(); break;
@@ -672,9 +775,7 @@ void Display::loop() {
 #    endif
                     break;
 
-                case INVALIDATETHEMEWIDGETS:
-                    invalidateThemeWidgets();
-                    break;
+                case INVALIDATETHEMEWIDGETS: invalidateThemeWidgets(); break;
 
                 case BOOTSTRING:
                     if (_bootstring) { _bootstring->setText(config.ssids[request.payload].ssid, LANG::bootstrFmt); }
@@ -694,7 +795,6 @@ void Display::loop() {
                     break;
 
                 case DSPRSSI:
-                    _setBtConnected();
                     _setRSSI(request.payload);
                     if (_heapbar && config.store.audioinfo) { _heapbar->setValue(player.isRunning() ? player.inBufferFilled() : 0); }
                     break;
@@ -722,7 +822,7 @@ void Display::loop() {
 } // loop vége
 
 void Display::_setRSSI(int rssi) {
-    if (config.store.rssiAsText && !config.store.vuBidirectional && _rssibox) {
+    if (config.store.rssiAsText && _rssibox) {
         _rssibox->setText(rssi, "%ddBm");
         return;
     }

@@ -404,7 +404,7 @@ static uint16_t findStationIdByUrl(const String& url) {
         char nameBuf[192];
         char urlBuf[512];
         int  ovol = 0;
-        if (config.parseCSV(line.c_str(), nameBuf, urlBuf, ovol)) {
+        if (config.parseCSV(line.c_str(), nameBuf, sizeof(nameBuf), urlBuf, sizeof(urlBuf), ovol)) {
             if (url == String(urlBuf)) {
                 playlist.close();
                 return id;

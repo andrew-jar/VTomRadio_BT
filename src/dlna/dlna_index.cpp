@@ -240,8 +240,8 @@ bool DlnaIndex::listContainer(const String& controlUrl, const String& objectId, 
   String didl;
   uint32_t ret = 0, tot = 0;
 
-  // 200 elég a UI-hoz, indexeléshez majd külön autoBuildPlaylist lapoz
-  const uint32_t pageSize = 200;
+  // Kisebb lapméret: alacsonyabb memória és hálózati terhelés a böngészésnél.
+  const uint32_t pageSize = 80;
   if (!browsePage(controlUrl, objectId, start, pageSize, didl, ret, tot)) return false;
 
   std::vector<String> cids, ctitles;
@@ -304,7 +304,7 @@ bool DlnaIndex::browseAndDecide(const String& controlUrl, const String& objectId
 
 // ================================================================
 // Playlist builder: deep traverse containers and append tracks
-// Writes yoRadio format: title \t url \t ovol
+// Writes VTomRadio format: title \t url \t ovol
 // ================================================================
 bool DlnaIndex::appendTracksToFile(const String& didl, fs::File& f, uint32_t& appended, uint32_t hardLimit) {
   std::vector<String> iids, ititles, iurls;

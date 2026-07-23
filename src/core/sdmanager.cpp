@@ -13,7 +13,10 @@
 #include "player.h"
 
 #if defined(SD_SPIPINS)
-SPIClass  SDSPI(HSPI);
+#ifndef SD_SPI_HOST
+#define SD_SPI_HOST HSPI
+#endif
+SPIClass  SDSPI(SD_SPI_HOST);
 #define SDREALSPI SDSPI
 #else
   #define SDREALSPI SPI
@@ -26,13 +29,30 @@ SPIClass  SDSPI(HSPI);
 SDManager sdman(FSImplPtr(new VFSImpl()));
 
 bool SDManager::start(){
-  ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+  Serial.printf("[SD] start cs=%d speed=%lu host=%d\n", SDC_CS, (uint32_t)SDSPISPEED, (int)SD_SPI_HOST);
+  pinMode(SDC_CS, OUTPUT);
+  digitalWrite(SDC_CS, HIGH);
   vTaskDelay(10);
-  if(!ready) ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+  ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+  Serial.printf("[SD] begin try1=%d\n", ready);
+  vTaskDelay(10);
+  if(!ready) {
+    ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+    Serial.printf("[SD] begin try2=%d\n", ready);
+  }
   vTaskDelay(20);
-  if(!ready) ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+  if(!ready) {
+    ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+    Serial.printf("[SD] begin try3=%d\n", ready);
+  }
   vTaskDelay(50);
-  if(!ready) ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+  if(!ready) {
+    ready = begin(SDC_CS, SDREALSPI, SDSPISPEED);
+    Serial.printf("[SD] begin try4=%d\n", ready);
+  }
+  if (ready) {
+    Serial.printf("[SD] mounted type=%u sizeMB=%llu\n", cardType(), cardSize() / (1024ULL * 1024ULL));
+  }
   return ready;
 }
 
@@ -136,4 +156,3 @@ void SDManager::indexSDPlaylist() {
   delay(50);
 }
 #endif
-

@@ -5,9 +5,7 @@
 		}
 	],
 	"settings": {
-		"git.enabled": false,
-		"git.decorations.enabled": false,
-		"explorer.decorations.colors": false,
-		"explorer.decorations.badges": false
+		"files.eol": "\n",
+		"files.insertFinalNewline": true
 	}
 }

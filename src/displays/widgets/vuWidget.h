@@ -53,6 +53,8 @@ class VuWidget : public Widget {
 
 #    if !defined(DSP_OLED)
     LGFX_Sprite* _spr = nullptr;
+    LGFX_Sprite* _labelSpr = nullptr;
+    uint16_t     _labelBoxHeight = 0;
 #    endif
 
     static bool   _labelsDrawn;

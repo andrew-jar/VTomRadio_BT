@@ -2,12 +2,16 @@
  *  aac_decoder.h
  *  faad2 - ESP32 adaptation
  *  Created on: 12.09.2023
- *  Updated on: 13.08.2024
+ *  Updated on: 13.06.2026
  */
 
 #pragma once
 
 #include "../Audio.h"
+#include "libfaad/aac_settings.h"
+#include "libfaad/aac_structs.h"
+#include "libfaad/aac_defines.h"
+#include "libfaad/aac_tables.h"
 #include "libfaad/neaacdec.h"
 
 #pragma GCC diagnostic warning "-Wunused-function"
@@ -48,9 +52,8 @@ class AACDecoder : public Decoder {
   private:
     Audio&       audio;
     ps_ptr<char> m_arg1;
-    ps_ptr<int16_t> m_out16;
     void         createAudioSpecificConfig(uint8_t* config, uint8_t audioObjectType, uint8_t samplingFrequencyIndex, uint8_t channelConfiguration);
-    const char*  getErrorMessage(int8_t err);
+    error_info_t getErrorMessage(int8_t err);
 
     NeAACDecHandle                m_hAac;
     NeAACDecFrameInfo             m_frameInfo;
@@ -74,10 +77,5 @@ class AACDecoder : public Decoder {
     };
 
 // ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-//  Macro for comfortable calls
-#define AAC_LOG_ERROR(fmt, ...)   Audio::AUDIO_LOG_IMPL(1, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_WARN(fmt, ...)    Audio::AUDIO_LOG_IMPL(2, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_INFO(fmt, ...)    Audio::AUDIO_LOG_IMPL(3, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_DEBUG(fmt, ...)   Audio::AUDIO_LOG_IMPL(4, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define AAC_LOG_VERBOSE(fmt, ...) Audio::AUDIO_LOG_IMPL(5, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
 };

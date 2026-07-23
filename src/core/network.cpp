@@ -13,19 +13,7 @@
 #include "../pluginsManager/pluginsManager.h"
 
 #ifndef WIFI_ATTEMPTS
-    #define WIFI_ATTEMPTS 30
-#endif
-
-#ifndef WIFI_BOOT_RETRIES
-    #define WIFI_BOOT_RETRIES 6
-#endif
-
-#ifndef WIFI_BOOT_RETRY_DELAY_MS
-    #define WIFI_BOOT_RETRY_DELAY_MS 1200
-#endif
-
-#ifndef WIFI_RECONNECT_MIN_INTERVAL_MS
-    #define WIFI_RECONNECT_MIN_INTERVAL_MS 1200
+    #define WIFI_ATTEMPTS 16
 #endif
 
 #ifndef SEARCH_WIFI_CORE_ID
@@ -33,7 +21,6 @@
 #endif
 MyNetwork network;
 static portMUX_TYPE networkTimeMux = portMUX_INITIALIZER_UNLOCKED;
-static uint32_t reconnectNotBeforeMs = 0;
 
 void network_get_timeinfo_snapshot(struct tm* out) {
     if (!out) return;
@@ -51,6 +38,12 @@ void network_set_timeinfo(const struct tm& in) {
 void MyNetwork::WiFiReconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
     network.beginReconnect = false;
     player.lockOutput = false;
+    if (strlen(config.store.mdnsname) > 0) {
+        MDNS.end();
+        if (MDNS.begin(config.store.mdnsname)) {
+            MDNS.addService("http", "tcp", 80);
+        }
+    }
     delay(100);
     display.putRequest(NEWMODE, PLAYER);
     if (config.getMode() == PM_SDCARD) {
@@ -58,10 +51,7 @@ void MyNetwork::WiFiReconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
         display.putRequest(NEWIP, 0);
     } else {
         display.putRequest(NEWMODE, PLAYER);
-        if (network.lostPlaying) {
-            player.sendCommand({PR_PLAY, config.lastStation()});
-            network.lostPlaying = false;
-        }
+        if (network.lostPlaying) player.sendCommand({PR_PLAY, config.lastStation()});
     }
 #ifdef MQTT_ROOT_TOPIC
     connectToMqtt();
@@ -69,10 +59,8 @@ void MyNetwork::WiFiReconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 void MyNetwork::WiFiLostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
-    uint32_t now = millis();
     if (!network.beginReconnect) {
-        const uint8_t ls = (config.store.lastSSID == 0 || config.store.lastSSID > config.ssidsCount) ? 0 : config.store.lastSSID - 1;
-        Serial.printf("Lost connection (reason=%u), reconnecting to %s...\n", info.wifi_sta_disconnected.reason, config.ssids[ls].ssid);
+        Serial.printf("Lost connection, reconnecting to %s...\n", config.ssids[config.store.lastSSID - 1].ssid);
         if (config.getMode() == PM_SDCARD) {
             network.status = SDREADY;
             display.putRequest(NEWIP, 0);
@@ -85,14 +73,8 @@ void MyNetwork::WiFiLostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
             display.putRequest(NEWMODE, LOST);
         }
     }
-    if (network.beginReconnect && static_cast<int32_t>(now - reconnectNotBeforeMs) < 0) {
-        return;
-    }
     network.beginReconnect = true;
-    reconnectNotBeforeMs = now + WIFI_RECONNECT_MIN_INTERVAL_MS;
-    if (WiFi.status() != WL_CONNECTED) {
-        WiFi.reconnect();
-    }
+    WiFi.reconnect();
 }
 
 bool MyNetwork::wifiBegin(bool silent) {
@@ -104,15 +86,10 @@ bool MyNetwork::wifiBegin(bool silent) {
     delay(1000); 
     WiFi.mode(WIFI_STA);
     delay(500);
-    WiFi.setSleep(false);
-    WiFi.setAutoReconnect(true);
     uint8_t ls = (config.store.lastSSID == 0 || config.store.lastSSID > config.ssidsCount) ? 0 : config.store.lastSSID - 1;
     uint8_t startedls = ls;
     uint8_t errcnt = 0;
-    uint8_t bootRetry = 0;
-    bool    wrappedSsids = false;
     while (true) {
-        wrappedSsids = false;
         if (!silent) {
             Serial.printf("##[BOOT]#\tAttempt to connect to %s\n", config.ssids[ls].ssid);
             Serial.print("##[BOOT]#\t");
@@ -151,28 +128,20 @@ bool MyNetwork::wifiBegin(bool silent) {
             if (errcnt > WIFI_ATTEMPTS) {
                 errcnt = 0;
                 ls++;
-                if (ls > config.ssidsCount - 1) {
-                    ls = 0;
-                    wrappedSsids = true;
-                }
+                if (ls > config.ssidsCount - 1) ls = 0;
                 if (!silent) Serial.println();
                 WiFi.mode(WIFI_OFF);
                 break;
             }
         }
+        if (WiFi.status() != WL_CONNECTED && ls == startedls) {
+            return false;
+            break;
+        }
         if (WiFi.status() == WL_CONNECTED) {
             config.setLastSSID(ls + 1);
             return true;
-        }
-        if (wrappedSsids && ls == startedls) {
-            bootRetry++;
-            if (!silent) {
-                Serial.printf("##[BOOT]#\tWiFi retry cycle %u/%u\n", bootRetry, WIFI_BOOT_RETRIES);
-            }
-            if (bootRetry >= WIFI_BOOT_RETRIES) {
-                return false;
-            }
-            delay(WIFI_BOOT_RETRY_DELAY_MS);
+            break;
         }
     }
     return false;
@@ -237,11 +206,20 @@ void MyNetwork::begin() {
 }
 
 void MyNetwork::setWifiParams() {
+    static bool wifiEventsRegistered = false;
     WiFi.setSleep(false);
-    WiFi.onEvent(WiFiReconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-    WiFi.onEvent(WiFiLostConnection, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    if (!wifiEventsRegistered) {
+        WiFi.onEvent(WiFiReconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+        WiFi.onEvent(WiFiLostConnection, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+        wifiEventsRegistered = true;
+    }
     // config.setTimeConf(); //??
-    if (strlen(config.store.mdnsname) > 0) MDNS.begin(config.store.mdnsname);
+    if (strlen(config.store.mdnsname) > 0) {
+        MDNS.end();
+        if (MDNS.begin(config.store.mdnsname)) {
+            MDNS.addService("http", "tcp", 80);
+        }
+    }
     Serial.printf("##[BOOT]#\tWeb UI: http://%s/\n", WiFi.localIP().toString().c_str());
 }
 
