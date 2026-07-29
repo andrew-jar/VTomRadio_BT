@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluetooth Bridge</title>
+  <link rel="stylesheet" href="theme.css" type="text/css" />
+  <link rel="stylesheet" href="style.css" type="text/css" />
+  <script type="text/javascript" src="variables.js"></script>
+  <style>
+    :root {
+      /* Fallback theme values (used when shared theme/style assets are unavailable). */
+      --main-bg-color: #101010;
+      --odd-bg-color: #272727;
+      --main-text-color: #cccccc;
+      --main-hl-color: #a9a9a9;
+      --accent-color: #4b95d6;
+      --accent-dark: #3a6f9e;
+      --accent-text-color: #ffffff;
+      --input-border: #555555;
+
+      --bt-line: var(--input-border, rgba(85,85,85,.9));
+      --bt-muted: var(--main-hl-color, #a9a9a9);
+      --bt-ok: #56b498;
+      --bt-warn: #d9a25e;
+      --bt-bad: #ef8f8f;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+      background: var(--main-bg-color);
+      color: var(--main-text-color);
+    }
+
+    .head {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .head-logo {
+      min-width: 170px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    #logo {
+      width: min(200px, 30vw);
+      max-width: 200px;
+      min-height: 52px;
+    }
+
+    #logo svg,
+    #logo img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .head-copy {
+      flex: 1;
+      text-align: center;
+    }
+
+    .wrap {
+      width: min(1024px, calc(100% - 20px));
+      margin: 0 auto;
+      padding: 14px 0 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      background: var(--odd-bg-color);
+      border: 1px solid var(--bt-line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    h1 {
+      margin: 5px 0 12px;
+      font-size: clamp(24px, 2.2vw, 26px);
+      line-height: 48px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: var(--accent-color);
+      text-align: center;
+    }
+
+    .muted { color: var(--bt-muted); font-size: 13px; }
+
+    .head-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .topbtn {
+      border: var(--accent-color) 2px solid;
+      background: var(--odd-bg-color);
+      color: var(--accent-color);
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      cursor: pointer;
+    }
+
+    .topbtn:hover {
+      border-color: var(--accent-color);
+      background: var(--accent-dark);
+      color: var(--accent-text-color);
+      filter: none;
+    }
+
+    .badge {
+      border: 1px solid var(--accent-color);
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      white-space: nowrap;
+      background: var(--accent-dark);
+      color: var(--accent-text-color);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .kv {
+      border: 1px solid var(--bt-line);
+      border-radius: 10px;
+      padding: 8px;
+      background: var(--main-bg-color);
+    }
+
+    .k { font-size: 12px; color: var(--bt-muted); }
+    .v { font-size: 15px; font-weight: 700; }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    button {
+      border: var(--accent-color) 2px solid;
+      background: var(--odd-bg-color);
+      color: var(--accent-color);
+      border-radius: 9px;
+      padding: 10px 8px;
+      cursor: pointer;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    button:hover {
+      border-color: var(--accent-color);
+      background: var(--accent-dark);
+      color: var(--accent-text-color);
+      filter: none;
+    }
+
+    button:disabled {
+      border-color: var(--input-border);
+      background: #1c1c1c;
+      color: var(--bt-muted);
+      cursor: not-allowed;
+      opacity: .6;
+    }
+
+    button:disabled:hover {
+      border-color: var(--input-border);
+      background: #1c1c1c;
+      color: var(--bt-muted);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .sliderbox {
+      display: grid;
+      gap: 6px;
+    }
+
+    .sliderlabel {
+      color: var(--bt-muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      border: var(--input-border) 1px solid;
+      background: var(--main-bg-color);
+      color: var(--accent-color);
+      border-radius: 8px;
+      padding: 10px;
+      outline: none;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--bt-line);
+      background: var(--main-bg-color);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-dark));
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-text-color);
+      border: 2px solid var(--accent-color);
+      margin-top: -4px;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-dark));
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-text-color);
+      border: 2px solid var(--accent-color);
+      cursor: pointer;
+    }
+
+    .log {
+      height: 320px;
+      overflow: auto;
+      background: var(--main-bg-color);
+      border: 1px solid var(--bt-line);
+      border-radius: 10px;
+      padding: 8px;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* style.css sets user-select:none globally; enable selection for log text */
+    .log,
+    .log * {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+    }
+
+    .devices {
+      margin-top: 10px;
+      border: 1px solid var(--bt-line);
+      border-radius: 10px;
+      background: var(--main-bg-color);
+      overflow: hidden;
+    }
+
+    .devices-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--bt-line);
+    }
+
+    .devices-list {
+      max-height: 240px;
+      overflow: auto;
+    }
+
+    .dev-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+
+    .dev-row:last-child {
+      border-bottom: 0;
+    }
+
+    .dev-row.active {
+      background: rgba(75,149,214,.12);
+      outline: 1px solid rgba(75,149,214,.35);
+    }
+
+    .dev-main {
+      min-width: 0;
+    }
+
+    .dev-name {
+      font-weight: 700;
+      color: var(--main-text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dev-sub {
+      margin-top: 2px;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 12px;
+      color: var(--bt-muted);
+    }
+
+    .dev-empty {
+      padding: 10px;
+      color: var(--bt-muted);
+      font-size: 13px;
+    }
+
+    .dev-btn {
+      font-size: 11px;
+      padding: 8px 10px;
+      border-width: 1px;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+
+    .ok { color: var(--bt-ok); }
+    .warn { color: var(--bt-warn); }
+    .bad { color: var(--bt-bad); }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    a {
+      color: var(--accent-color);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    #copy {
+      margin-top: 8px;
+      text-align: center;
+      color: var(--bt-muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .head {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .head-logo {
+        order: 1;
+        min-width: 0;
+        justify-content: center;
+      }
+      .head-copy {
+        order: 2;
+        text-align: center;
+      }
+      .head-actions {
+        order: 3;
+        width: 100%;
+        justify-content: space-between;
+      }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="head-logo">
+        <div id="logo"></div>
+      </div>
+      <div class="head-copy">
+        <h1>Bluetooth - VTom Radio</h1>
+        <div class="muted">UART control panel: BT ON/OFF, MODE, SCAN, CONNECT, VOL, BOOST</div>
+      </div>
+      <div class="head-actions">
+        <button class="topbtn" type="button" onclick="goHome()">Home</button>
+        <div class="badge" id="wsState">WS CONNECTING</div>
+      </div>
+    </div>
+
+    <div class="panel grid">
+      <div class="kv"><div class="k">BT</div><div id="stBt" class="v">?</div></div>
+      <div class="kv"><div class="k">Mode</div><div id="stMode" class="v">?</div></div>
+      <div class="kv"><div class="k">Volume</div><div id="stVol" class="v">?</div></div>
+      <div class="kv"><div class="k">Boost</div><div id="stBoost" class="v">?</div></div>
+      <div class="kv"><div class="k">SRC</div><div id="stSrc" class="v">?</div></div>
+      <div class="kv"><div class="k">Connected</div><div id="stConn" class="v">?</div></div>
+      <div class="kv"><div class="k">MAC</div><div id="stMac" class="v">-</div></div>
+      <div class="kv"><div class="k">Name</div><div id="stName" class="v">-</div></div>
+    </div>
+
+    <div class="panel buttons">
+      <button data-cmd="STATUS?">STATUS?</button>
+      <button data-cmd="BT ON">BT ON</button>
+      <button data-cmd="BT OFF">BT OFF (MODE OFF)</button>
+      <button data-cmd="SCAN">SCAN</button>
+      <button data-cmd="MODE TX">MODE TX</button>
+      <button data-cmd="DISCONNECT">DISCONNECT</button>
+      <button data-cmd="PAIRED?">PAIRED?</button>
+      <button data-cmd="DELPAIRED ALL">DELPAIRED ALL</button>
+      <button data-cmd="SAVE">SAVE</button>
+      <button data-cmd="HARDRESET">HARDRESET</button>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <input id="connectValue" type="text" placeholder="CONNECT: enter index (e.g. 0) or MAC (AA:BB:CC:DD:EE:FF)" />
+        <button id="connectBtn">CONNECT</button>
+      </div>
+      <div class="muted" style="margin-top:6px; font-size:11px;">
+        <label>
+          <input id="forceConnect" type="checkbox" />
+          Force CONNECT (fallback only): allow trying unsupported MAC entries.
+        </label>
+      </div>
+
+      <div class="row">
+        <div class="sliderbox">
+          <div class="sliderlabel">Volume: <strong id="volValueLabel">100</strong></div>
+          <input id="volValue" type="range" min="0" max="100" value="100" />
+        </div>
+        <button id="volBtn">SET VOL</button>
+      </div>
+
+      <div class="row">
+        <div class="sliderbox">
+          <div class="sliderlabel">Boost: <strong id="boostValueLabel">100</strong></div>
+          <input id="boostValue" type="range" min="100" max="400" step="5" value="100" />
+        </div>
+        <button id="boostBtn">SET BOOST</button>
+      </div>
+
+      <div class="row">
+        <input id="rawCmd" type="text" placeholder="Custom command, e.g. DBG 1" />
+        <button id="rawBtn">SEND</button>
+      </div>
+      <div class="muted" style="margin-top:6px; font-size:11px;">
+        Raw command hint: STATUS?, SCAN, CONNECT AA:BB:CC:DD:EE:FF, BT ON, BT OFF
+      </div>
+
+      <div class="devices">
+        <div class="devices-head">
+          <strong>Detected Devices</strong>
+          <button id="connectSelectedBtn" class="dev-btn" type="button">CONNECT SELECTED</button>
+        </div>
+        <div id="devicesList" class="devices-list">
+          <div class="dev-empty">Run SCAN to discover devices.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="footer" style="margin-bottom:8px;">
+        <strong>Log</strong>
+        <div style="display:flex; gap:8px;">
+          <button id="copyLog">Copy</button>
+          <button id="clearLog">Clear</button>
+        </div>
+      </div>
+      <div id="log" class="log"></div>
+    </div>
+
+    <div class="panel footer">
+      <span class="muted">Tip: after opening, the page automatically sends STATUS? every 5s</span>
+    </div>
+
+    <div id="copy">VTom Radio BT Panel<br>Bluetooth by A. Jaroszuk<span id="version"></span></div>
+  </div>
+
+  <script>
+    const wsProto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const wsUrl = wsProto + location.host + '/ws';
+
+    let ws = null;
+    let statusTimer = null;
+    let devices = [];
+    let selectedDeviceId = null;
+    let scanInProgress = false;
+    let lastStatusReqMs = 0;
+    let statusReqPending = false;
+    let statusSoonTimer = null;
+    let statusSoonDueMs = 0;
+    let lastEvtConnSignature = '';
+    let lastConnectCmd = '';
+    let lastConnectCmdMs = 0;
+    let connectIntentUntilMs = 0;
+    let manualConnectArmed = false;
+    let lastAutoDisconnectMs = 0;
+    let pendingConnectMac = '';
+    let pendingConnectName = '';
+    let lastKnownMac = '-';
+    let lastKnownName = '-';
+    let lastAudioStartedMs = 0;
+    let lastConnectedEvtMs = 0;
+    let restartGuardUntilMs = 0;
+    let recoveryConnectGraceUntilMs = 0;
+    let bridgeConnectUntilMs = 0;
+    let scanAutoRejectUntilMs = 0;
+    let lastScanAutoRejectLogMs = 0;
+    let deferredConnectCmd = '';
+    let connectRetryCount = 0;
+    let connectRetryTarget = '';
+    let connectRetryTimer = null;
+    let connectAttemptActive = false;
+    let connectAttemptStartedMs = 0;
+    let connectSuppressedUntilMs = 0;
+    const macHintWarned = Object.create(null);
+
+    const CONNECT_INTENT_WINDOW_MS = 30000;
+    const AUTO_DISCONNECT_GUARD_MS = 2500;
+    const CONNECT_TRANSITION_GRACE_MS = 16000;
+    const ENFORCE_MANUAL_CONNECT = true;
+    const STATUS_MIN_GAP_MS = 800;
+    const STATUS_POLL_INTERVAL_MS = 5000;
+    const CONNECT_RETRY_MAX = 1;
+    const CONNECT_RETRY_DELAY_MS = 1700;
+    const CONNECT_FAIL_WINDOW_MS = 4500;
+    const DEFERRED_CONNECT_DELAY_MS = 120;
+    const RECOVERY_CONNECT_GRACE_MS = 15000;
+    const BRIDGE_CONNECT_GRACE_MS = 12000;
+    const SCAN_AUTO_REJECT_GRACE_MS = 12000;
+
+    const els = {
+      wsState: document.getElementById('wsState'),
+      log: document.getElementById('log'),
+      stBt: document.getElementById('stBt'),
+      stMode: document.getElementById('stMode'),
+      stVol: document.getElementById('stVol'),
+      stBoost: document.getElementById('stBoost'),
+      stSrc: document.getElementById('stSrc'),
+      stConn: document.getElementById('stConn'),
+      stMac: document.getElementById('stMac'),
+      stName: document.getElementById('stName'),
+      btnScan: document.querySelector('button[data-cmd="SCAN"]')
+    };
+
+    let lastLogLine = '';
+    let lastLogLineMs = 0;
+    let lastStatusCmdLogMs = 0;
+    let lastStatusTxLogMs = 0;
+    let lastStateLogMs = 0;
+    let lastStateSig = '';
+
+    const LOG_DUP_WINDOW_MS = 1200;
+    const LOG_STATUS_CMD_MIN_MS = 5000;
+    const LOG_STATUS_TX_MIN_MS = 5000;
+    const LOG_STATE_UNCHANGED_MIN_MS = 12000;
+
+    function syncScanButton() {
+      if (!els.btnScan || !els.stMode) return;
+      els.btnScan.disabled = els.stMode.textContent === 'OFF';
+    }
+
+    function nowTime() {
+      const d = new Date();
+      return d.toLocaleTimeString();
+    }
+
+    function goHome() {
+      window.location.href = '/';
+    }
+
+    function addLog(line, cls) {
+      const div = document.createElement('div');
+      if (cls) div.className = cls;
+      div.textContent = '[' + nowTime() + '] ' + line;
+      els.log.appendChild(div);
+      const maxRows = 350;
+      while (els.log.childNodes.length > maxRows) {
+        els.log.removeChild(els.log.firstChild);
+      }
+      els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    function makeStateSignature(line) {
+      const bt = (line.match(/\bBT=([^\s]+)/) || [])[1] || '?';
+      const mode = (line.match(/\bMODE=([^\s]+)/) || [])[1] || '?';
+      const vol = (line.match(/\bVOL=(\d+)/) || [])[1] || '?';
+      const boost = (line.match(/\bBOOST=(\d+)/) || [])[1] || '?';
+      const conn = (line.match(/\bCONN=(\d+)/) || [])[1] || '?';
+      const scan = (line.match(/\bSCAN=(\d+)/) || [])[1] || '?';
+      const rb = (line.match(/\bRB=\d+\[([^\]]+)\]/) || [])[1] || '?';
+      const cbu = (line.match(/\bCBU=(\d+)/) || [])[1] || '?';
+      return bt + '|' + mode + '|' + vol + '|' + boost + '|' + conn + '|' + scan + '|' + rb + '|' + cbu;
+    }
+
+    function shouldLogLine(line) {
+      const now = Date.now();
+      const text = String(line || '').trim();
+      if (!text) return false;
+
+      if (text === lastLogLine && (now - lastLogLineMs) < LOG_DUP_WINDOW_MS) {
+        return false;
+      }
+
+      if (text === 'CMD[UART] "STATUS?"') {
+        if ((now - lastStatusCmdLogMs) < LOG_STATUS_CMD_MIN_MS) {
+          return false;
+        }
+        lastStatusCmdLogMs = now;
+      }
+
+      if (text === '> STATUS?' || text === 'TX STATUS?') {
+        if ((now - lastStatusTxLogMs) < LOG_STATUS_TX_MIN_MS) {
+          return false;
+        }
+        lastStatusTxLogMs = now;
+      }
+
+      if (text.startsWith('STATE ')) {
+        const sig = makeStateSignature(text);
+        if (sig === lastStateSig && (now - lastStateLogMs) < LOG_STATE_UNCHANGED_MIN_MS) {
+          return false;
+        }
+        lastStateSig = sig;
+        lastStateLogMs = now;
+      }
+
+      lastLogLine = text;
+      lastLogLineMs = now;
+      return true;
+    }
+
+    function isValidMac(v) {
+      return /^[0-9A-F]{2}(:[0-9A-F]{2}){5}$/i.test(String(v || ''));
+    }
+
+    function isUnicastMac(v) {
+      if (!isValidMac(v)) return false;
+      const firstOctet = parseInt(String(v).slice(0, 2), 16);
+      return Number.isFinite(firstOctet) && ((firstOctet & 1) === 0);
+    }
+
+    function connectabilityIssue(mac) {
+      if (!isValidMac(mac)) {
+        return 'invalid MAC format';
+      }
+      return '';
+    }
+
+    function connectabilityHint(mac) {
+      if (!isValidMac(mac)) return '';
+      if (!isUnicastMac(mac)) {
+        return 'MAC has LSB=1 in first octet; for some headsets this can still work, but may indicate BLE/random address';
+      }
+      return '';
+    }
+
+    function isForceConnectEnabled() {
+      const el = document.getElementById('forceConnect');
+      return !!(el && el.checked);
+    }
+
+    function rememberDevice(mac, name) {
+      const m = String(mac || '').trim();
+      const n = String(name || '').trim();
+      if (isValidMac(m)) {
+        lastKnownMac = m.toUpperCase();
+        els.stMac.textContent = lastKnownMac;
+      }
+      if (n) {
+        lastKnownName = n;
+        els.stName.textContent = lastKnownName;
+      }
+    }
+
+    function markConnectIntent(mac, name) {
+      connectIntentUntilMs = Date.now() + CONNECT_INTENT_WINDOW_MS;
+      manualConnectArmed = true;
+      pendingConnectMac = String(mac || '').trim();
+      pendingConnectName = String(name || '').trim();
+      rememberDevice(pendingConnectMac, pendingConnectName);
+    }
+
+    function clearConnectionIdentity(clearKnown = true, clearIntent = true) {
+      if (clearIntent) {
+        connectIntentUntilMs = 0;
+        manualConnectArmed = false;
+        pendingConnectMac = '';
+        pendingConnectName = '';
+      }
+      els.stConn.textContent = 'NO';
+      els.stMac.textContent = '-';
+      els.stName.textContent = '-';
+      if (clearKnown) {
+        lastKnownMac = '-';
+        lastKnownName = '-';
+      }
+    }
+
+    function clearScanCache() {
+      devices = [];
+      selectedDeviceId = null;
+      scanInProgress = false;
+      renderDevices();
+    }
+
+    function cancelConnectRetry() {
+      if (connectRetryTimer) {
+        clearTimeout(connectRetryTimer);
+        connectRetryTimer = null;
+      }
+    }
+
+    function sendBtCmd(cmd) {
+      if (!cmd) return;
+      let normalized = String(cmd).trim();
+      let upper = normalized.toUpperCase();
+
+      if (upper === 'SCAN' && els.stMode && els.stMode.textContent === 'OFF') {
+        addLog('SCAN blocked: MODE OFF. Switch to TX first.', 'warn');
+        return;
+      }
+
+      if (upper === 'SCAN' && scanInProgress) {
+        addLog('SCAN already in progress', 'warn');
+        return;
+      }
+
+      let deferConnectUntilScanDone = upper.startsWith('CONNECT ') && scanInProgress;
+      let connectTarget = '';
+
+      if (upper.startsWith('CONNECT ')) {
+        const now = Date.now();
+        if (els.stConn && els.stConn.textContent === 'YES') {
+          addLog('Already connected, skip CONNECT', 'warn');
+          return;
+        }
+        if (lastConnectCmd === upper && (now - lastConnectCmdMs) < 5000) {
+          addLog('CONNECT ignored (duplicate)', 'warn');
+          return;
+        }
+        lastConnectCmd = upper;
+        lastConnectCmdMs = now;
+
+        const arg = normalized.slice(8).trim();
+        if (/^\d+$/.test(arg)) {
+          const idx = parseInt(arg, 10);
+          const d = devices.find((it) => it.id === idx);
+          if (d) {
+            connectTarget = d.mac;
+            const issue = connectabilityIssue(d.mac);
+            if (issue) {
+              if (!isForceConnectEnabled()) {
+                addLog('CONNECT blocked for #' + idx + ': ' + issue, 'warn');
+                return;
+              }
+              addLog('Force CONNECT for #' + idx + ': ' + issue, 'warn');
+            }
+            markConnectIntent(d.mac, d.name);
+            if (scanInProgress) {
+              // Device is already discovered; send CONNECT by MAC immediately
+              // instead of waiting for SCAN DONE.
+              normalized = 'CONNECT ' + d.mac;
+              upper = normalized.toUpperCase();
+              deferConnectUntilScanDone = false;
+              addLog('CONNECT accelerated during scan using MAC (' + d.mac + ')', 'ok');
+            }
+          } else {
+            connectTarget = arg;
+            markConnectIntent('', '');
+          }
+        } else if (isValidMac(arg)) {
+          const upperMac = arg.toUpperCase();
+          connectTarget = upperMac;
+          const issue = connectabilityIssue(upperMac);
+          if (issue) {
+            if (!isForceConnectEnabled()) {
+              addLog('CONNECT blocked for ' + upperMac + ': ' + issue, 'warn');
+              return;
+            }
+            addLog('Force CONNECT for ' + upperMac + ': ' + issue, 'warn');
+          }
+          markConnectIntent(upperMac, '');
+        } else {
+          connectTarget = arg;
+          markConnectIntent('', '');
+        }
+
+        if (deferConnectUntilScanDone) {
+          deferredConnectCmd = normalized;
+          // Do not let duplicate suppression block this deferred command after SCAN DONE.
+          lastConnectCmd = '';
+          lastConnectCmdMs = 0;
+          addLog('CONNECT deferred: waiting for SCAN DONE (' + normalized + ')', 'warn');
+          return;
+        }
+      } else if (upper === 'DISCONNECT') {
+        connectSuppressedUntilMs = Date.now() + 5000;
+        connectAttemptActive = false;
+        bridgeConnectUntilMs = 0;
+        cancelConnectRetry();
+        clearConnectionIdentity();
+      } else if (upper === 'BT OFF' || upper === 'MODE OFF') {
+        connectSuppressedUntilMs = Date.now() + 5000;
+        connectAttemptActive = false;
+        bridgeConnectUntilMs = 0;
+        cancelConnectRetry();
+        clearConnectionIdentity();
+      } else if (upper === 'DELPAIRED ALL' || upper === 'HARDRESET') {
+        connectSuppressedUntilMs = Date.now() + 5000;
+        connectAttemptActive = false;
+        bridgeConnectUntilMs = 0;
+        cancelConnectRetry();
+        clearConnectionIdentity();
+        clearScanCache();
+      }
+
+      if (!ws || ws.readyState !== 1) {
+        addLog('WS not connected, cannot send: ' + normalized, 'bad');
+        return;
+      }
+
+      if (upper.startsWith('CONNECT ')) {
+        connectAttemptActive = true;
+        connectAttemptStartedMs = Date.now();
+        if (connectTarget) {
+          if (connectRetryTarget !== connectTarget) {
+            connectRetryCount = 0;
+          }
+          connectRetryTarget = connectTarget;
+        }
+      }
+
+      ws.send('btcmd=' + normalized);
+      addLog('TX ' + normalized, 'ok');
+      // Coalesce near-term refreshes into one STATUS request.
+      scheduleStatus(400);
+    }
+
+    function requestStatus(forceNow = false) {
+      if (ws && ws.readyState === 1) {
+        const now = Date.now();
+        if (!forceNow && (now - lastStatusReqMs) < STATUS_MIN_GAP_MS) {
+          if (!statusReqPending) {
+            statusReqPending = true;
+            setTimeout(() => {
+              statusReqPending = false;
+              requestStatus(true);
+            }, (STATUS_MIN_GAP_MS + 50) - (now - lastStatusReqMs));
+          }
+          return;
+        }
+        if (statusSoonTimer) {
+          clearTimeout(statusSoonTimer);
+          statusSoonTimer = null;
+          statusSoonDueMs = 0;
+        }
+        lastStatusReqMs = now;
+        ws.send('getbluetooth=1');
+      }
+    }
+
+    function scheduleStatus(delayMs = 250) {
+      const now = Date.now();
+      const due = now + Math.max(0, delayMs | 0);
+
+      if (!statusSoonTimer) {
+        statusSoonDueMs = due;
+        statusSoonTimer = setTimeout(() => {
+          statusSoonTimer = null;
+          statusSoonDueMs = 0;
+          requestStatus();
+        }, Math.max(0, due - now));
+        return;
+      }
+
+      // Keep only the soonest planned request, don't stack more timers.
+      if (due < statusSoonDueMs) {
+        clearTimeout(statusSoonTimer);
+        statusSoonDueMs = due;
+        statusSoonTimer = setTimeout(() => {
+          statusSoonTimer = null;
+          statusSoonDueMs = 0;
+          requestStatus();
+        }, Math.max(0, due - Date.now()));
+      }
+    }
+
+    function formatSourceLabel(srcToken) {
+      const raw = String(srcToken || '').trim();
+      if (!raw) {
+        return '?';
+      }
+
+      const upper = raw.toUpperCase();
+      if (upper.includes('UNKNOWN')) {
+        return raw;
+      }
+
+      const rateMatch = raw.match(/^([0-9]+)/);
+      const inHz = rateMatch ? parseInt(rateMatch[1], 10) : 0;
+      if (!inHz) {
+        return raw;
+      }
+
+      // One-field presentation: keep source visible and show effective A2DP behavior.
+      if (inHz >= 43000 && inHz <= 45500) return raw + ' (OUT 44100)';
+      if (inHz >= 46500 && inHz <= 49500) return raw + ' (OUT 44100 resampled)';
+      return raw;
+    }
+
+    function parseStateLine(line) {
+      if (!line || !line.includes('STATE')) return;
+
+      const fmtMac = (v) => (!v || v === 'None' || v === 'NONE' || v === '00:00:00:00:00:00') ? '-' : v;
+      const fmtName = (v) => (v && v.trim()) ? v : '-';
+
+      // Example:
+      // STATE BT=ON MODE=TX VOL=100(127=127) BOOST=100 SRC=44100(44102Hz) RB=123 SCAN=0 CONN=1 MAC=AA:.. NAME="Device"
+      const stateRe = /STATE\s+BT=(\S+)\s+MODE=(\S+)\s+VOL=(\d+)\([^)]*\)\s+BOOST=(\d+)\s+SRC=([^\s]+)\s+RB=\d+(?:\[[^\]]+\])?\s+SCAN=\d+\s+CONN=(\d+)\s+MAC=([^\s]+)\s+NAME="([^"]*)"/;
+      const m = line.match(stateRe);
+      if (m) {
+        els.stBt.textContent = m[1];
+        els.stMode.textContent = m[2];
+        els.stVol.textContent = m[3];
+        els.stBoost.textContent = m[4];
+        els.stSrc.textContent = formatSourceLabel(m[5]);
+        const rbMatch = line.match(/\bRB=(\d+)\[([^\]]+)\]\s+.*\s+CB=(\d+)/);
+        if (rbMatch && shouldLogLine('RB')) {
+          // optional debug hook for RB state metrics
+        }
+        const macTxt = fmtMac(m[7]);
+        const nameTxt = fmtName(m[8]);
+        const connYesRaw = m[6] === '1';
+        const hasIdentity = (macTxt !== '-' || nameTxt !== '-');
+        const freshAudio = (Date.now() - lastAudioStartedMs) < 12000;
+        const confirmedEvt = (Date.now() - lastConnectedEvtMs) < 20000;
+        const restartGuardActive = Date.now() < restartGuardUntilMs;
+        const rbProcess = /\bRB=\d+\[PROCESS\]\b/.test(line);
+        const connYes = connYesRaw && (freshAudio || rbProcess || (hasIdentity && (!restartGuardActive || confirmedEvt)));
+        els.stConn.textContent = connYes ? 'YES' : 'NO';
+        if (macTxt !== '-') {
+          els.stMac.textContent = macTxt;
+          rememberDevice(macTxt, nameTxt === '-' ? '' : nameTxt);
+        } else if (connYes && lastKnownMac !== '-') {
+          els.stMac.textContent = lastKnownMac;
+        } else {
+          els.stMac.textContent = macTxt;
+        }
+
+        if (nameTxt !== '-') {
+          els.stName.textContent = nameTxt;
+          if (macTxt === '-') rememberDevice('', nameTxt);
+        } else if (connYes && lastKnownName !== '-') {
+          els.stName.textContent = lastKnownName;
+        } else {
+          els.stName.textContent = nameTxt;
+        }
+
+        if (!connYes && m[1] === 'OFF') {
+          clearConnectionIdentity(false);
+        }
+      } else {
+        // Fallback parser for non-ideal lines (different order / merged responses).
+        const bt = line.match(/\bBT=([^\s]+)/);
+        const mode = line.match(/\bMODE=([^\s]+)/);
+        const vol = line.match(/\bVOL=(\d+)/);
+        const boost = line.match(/\bBOOST=(\d+)/);
+        const src = line.match(/\bSRC=([^\s]+)/);
+        const conn = line.match(/\bCONN=(\d+)/);
+        const scan = line.match(/\bSCAN=(\d+)/);
+        const mac = line.match(/\bMAC=([^\s]+)/);
+        const name = line.match(/\bNAME="([^"]*)"/);
+
+        if (bt) els.stBt.textContent = bt[1];
+        if (mode) els.stMode.textContent = mode[1];
+        if (vol) els.stVol.textContent = vol[1];
+        if (boost) els.stBoost.textContent = boost[1];
+        if (src) {
+          els.stSrc.textContent = formatSourceLabel(src[1]);
+        }
+        if (conn) {
+          const connYesRaw = conn[1] === '1';
+          const macNow = mac ? fmtMac(mac[1]) : '-';
+          const nameNow = name ? fmtName(name[1]) : '-';
+          const hasIdentity = (macNow !== '-' || nameNow !== '-');
+          const freshAudio = (Date.now() - lastAudioStartedMs) < 12000;
+          const confirmedEvt = (Date.now() - lastConnectedEvtMs) < 20000;
+          const restartGuardActive = Date.now() < restartGuardUntilMs;
+          const rbProcess = /\bRB=\d+\[PROCESS\]\b/.test(line);
+          els.stConn.textContent = (connYesRaw && (freshAudio || rbProcess || (hasIdentity && (!restartGuardActive || confirmedEvt)))) ? 'YES' : 'NO';
+        }
+        if (scan) scanInProgress = scan[1] === '1';
+        if (mac) {
+          const macTxt = fmtMac(mac[1]);
+          if (macTxt !== '-') {
+            els.stMac.textContent = macTxt;
+            rememberDevice(macTxt, '');
+          } else if (els.stConn.textContent === 'YES' && lastKnownMac !== '-') {
+            els.stMac.textContent = lastKnownMac;
+          } else {
+            els.stMac.textContent = macTxt;
+          }
+        }
+        if (name) {
+          const nameTxt = fmtName(name[1]);
+          if (nameTxt !== '-') {
+            els.stName.textContent = nameTxt;
+            rememberDevice('', nameTxt);
+          } else if (els.stConn.textContent === 'YES' && lastKnownName !== '-') {
+            els.stName.textContent = lastKnownName;
+          } else {
+            els.stName.textContent = nameTxt;
+          }
+        }
+      }
+
+      const scanMain = line.match(/\bSCAN=(\d+)/);
+      if (scanMain) scanInProgress = scanMain[1] === '1';
+
+      const volInput = document.getElementById('volValue');
+      const volLabel = document.getElementById('volValueLabel');
+      if (volInput && volLabel) {
+        volInput.value = els.stVol.textContent;
+        volLabel.textContent = els.stVol.textContent;
+      }
+
+      const boostInput = document.getElementById('boostValue');
+      const boostLabel = document.getElementById('boostValueLabel');
+      if (boostInput && boostLabel) {
+        boostInput.value = els.stBoost.textContent;
+        boostLabel.textContent = els.stBoost.textContent;
+      }
+
+      syncScanButton();
+    }
+
+    function parseEvtLine(line) {
+      if (/^(>\s*CONNECT\s+|CMD\[UART\]\s+"CONNECT\s+|OK\s+CONNECT\s+)/i.test(line)) {
+        // Track bridge-driven CONNECT flow so CONNECTED is not misclassified as unsolicited.
+        bridgeConnectUntilMs = Date.now() + BRIDGE_CONNECT_GRACE_MS;
+      }
+
+      if (line.includes('STATE BTBRIDGE=RECOVER CONNECT_NO_AUDIO')) {
+        // Backend initiated a controlled reconnect; don't treat upcoming CONNECTED as unsolicited.
+        recoveryConnectGraceUntilMs = Date.now() + RECOVERY_CONNECT_GRACE_MS;
+      }
+
+      if (/^READY\s+.*BT-TX/i.test(line)) {
+        restartGuardUntilMs = Date.now() + 15000;
+        clearConnectionIdentity(false);
+        scheduleStatus(500);
+      }
+
+      const evtMac = line.match(/\bMAC=([0-9A-F:]{17}|None)\b/i);
+      const evtName = line.match(/\bNAME="([^"]*)"/i);
+      if (evtMac) {
+        const mac = evtMac[1];
+        if (mac && !/^none$/i.test(mac) && mac !== '00:00:00:00:00:00') {
+          rememberDevice(mac.toUpperCase(), '');
+        } else if (pendingConnectMac && isValidMac(pendingConnectMac)) {
+          els.stMac.textContent = pendingConnectMac.toUpperCase();
+        }
+      }
+      if (evtName) {
+        const nm = evtName[1] || '';
+        if (nm.trim()) {
+          rememberDevice('', nm);
+        } else if (pendingConnectName) {
+          els.stName.textContent = pendingConnectName;
+        }
+      }
+
+      const evtConn = line.match(/^EVT\s+A2DP_CONN\s+(DISCONNECTED|DISCONNECTING|CONNECTING|CONNECTED)\b/i);
+      if (evtConn) {
+        const state = evtConn[1].toUpperCase();
+        const now = Date.now();
+        const evtMacNorm = evtMac && evtMac[1] && !/^none$/i.test(evtMac[1]) ? evtMac[1].toUpperCase() : '';
+        const evtNameNorm = evtName && evtName[1] ? evtName[1].trim() : '';
+        const connSignature = state + '|' + (evtMacNorm || '-') + '|' + (evtNameNorm || '-');
+        const connTransition = connSignature !== lastEvtConnSignature;
+        if (connTransition) {
+          lastEvtConnSignature = connSignature;
+        }
+        const intentMacNorm = (pendingConnectMac || '').toUpperCase();
+        const intentNameNorm = (pendingConnectName || '').trim();
+        const hasRecentManualIntent =
+          now <= connectIntentUntilMs ||
+          (lastConnectCmd && (now - lastConnectCmdMs) <= CONNECT_TRANSITION_GRACE_MS);
+
+        const evtMatchesIntent =
+          !intentMacNorm ||
+          !evtMacNorm ||
+          evtMacNorm === intentMacNorm ||
+          (intentNameNorm && evtNameNorm && evtNameNorm === intentNameNorm);
+        const hasApprovedManualIntent = hasRecentManualIntent || (manualConnectArmed && evtMatchesIntent);
+
+        if (state === 'DISCONNECTED' || state === 'DISCONNECTING') {
+          const immediateFail =
+            connectAttemptActive &&
+            (now - connectAttemptStartedMs) <= CONNECT_FAIL_WINDOW_MS &&
+            now > connectSuppressedUntilMs &&
+            !scanInProgress &&
+            !!connectRetryTarget;
+
+          if (immediateFail && connectRetryCount < CONNECT_RETRY_MAX && !connectRetryTimer) {
+            connectRetryCount += 1;
+            const retryCmd = 'CONNECT ' + connectRetryTarget;
+            addLog('Auto-retry #' + connectRetryCount + ' after quick disconnect: ' + retryCmd, 'warn');
+            connectRetryTimer = setTimeout(() => {
+              connectRetryTimer = null;
+              // Bypass duplicate guard for controlled retry.
+              lastConnectCmd = '';
+              sendBtCmd(retryCmd);
+            }, CONNECT_RETRY_DELAY_MS);
+          }
+
+          const preserveManualApproval = manualConnectArmed && evtMatchesIntent;
+          clearConnectionIdentity(false, !preserveManualApproval);
+          // Some stacks emit transient DISCONNECTED before CONNECTING/CONNECTED.
+          // Keep recent connect intent alive to avoid false "auto-connect blocked" disconnects.
+          if (!hasApprovedManualIntent) {
+            connectIntentUntilMs = 0;
+          }
+        } else if (state === 'CONNECTING') {
+          // Handshake is in progress; stop queued retry so we don't send a duplicate CONNECT.
+          if (evtMatchesIntent && connectRetryTimer) {
+            cancelConnectRetry();
+            addLog('Auto-retry canceled: CONNECTING in progress', 'ok');
+          }
+          // Do not force YES yet; wait for CONNECTED/AUDIO STARTED.
+        } else if (state === 'CONNECTED') {
+          connectAttemptActive = false;
+          connectRetryCount = 0;
+          cancelConnectRetry();
+          lastConnectedEvtMs = now;
+          const manualEnforcementActive = ENFORCE_MANUAL_CONNECT;
+          const allowConnectedDuringFlow = !!deferredConnectCmd;
+          const allowConnectedDuringRecovery = now <= recoveryConnectGraceUntilMs;
+          const allowConnectedAfterBridgeConnect = now <= bridgeConnectUntilMs;
+          const suppressionActive = now <= connectSuppressedUntilMs;
+          const scanPolicyWindowActive = scanInProgress || (now <= scanAutoRejectUntilMs);
+          if (manualEnforcementActive && !hasApprovedManualIntent && scanPolicyWindowActive && (now - lastScanAutoRejectLogMs) > 3000) {
+            lastScanAutoRejectLogMs = now;
+            addLog('Ignoring transient CONNECTED during scan/auto-reject window', 'warn');
+          }
+          const connectedIdentityUnknown = !evtMacNorm && !evtNameNorm;
+          const unsolicited = manualEnforcementActive
+            && !hasApprovedManualIntent
+            && !allowConnectedDuringFlow
+            && !allowConnectedDuringRecovery
+            && !allowConnectedAfterBridgeConnect
+            && !connectedIdentityUnknown
+            && !suppressionActive
+            && !scanPolicyWindowActive;
+          if (unsolicited) {
+            if ((now - lastAutoDisconnectMs) > AUTO_DISCONNECT_GUARD_MS) {
+              lastAutoDisconnectMs = now;
+              addLog('Auto-connect blocked (manual mode). Click CONNECT on selected device.', 'warn');
+              sendBtCmd('DISCONNECT');
+            }
+          } else {
+            recoveryConnectGraceUntilMs = 0;
+            bridgeConnectUntilMs = 0;
+            manualConnectArmed = false;
+            connectIntentUntilMs = 0;
+            els.stConn.textContent = 'YES';
+            if (allowConnectedDuringFlow) {
+              addLog('CONNECTED accepted during scan/connect flow', 'ok');
+            } else if (allowConnectedDuringRecovery) {
+              addLog('CONNECTED accepted during recovery flow', 'ok');
+            } else if (allowConnectedAfterBridgeConnect) {
+              addLog('CONNECTED accepted after bridge CONNECT command flow', 'ok');
+            } else if (connectedIdentityUnknown && !hasApprovedManualIntent) {
+              addLog('CONNECTED accepted (unknown peer identity: MAC/NAME not provided by WROOM)', 'warn');
+            }
+            if (pendingConnectMac || pendingConnectName) {
+              rememberDevice(pendingConnectMac, pendingConnectName);
+            }
+          }
+        }
+        if (connTransition) {
+          scheduleStatus(500);
+        }
+      }
+      if (line.includes('EVT A2DP_CONN REJECT SCAN_AUTO')) {
+        scanAutoRejectUntilMs = Date.now() + SCAN_AUTO_REJECT_GRACE_MS;
+        addLog('WROOM rejected auto-connect during scan (firmware policy)', 'warn');
+        scheduleStatus(400);
+      }
+      if (line.includes('EVT A2DP_AUDIO STARTED')) {
+        connectAttemptActive = false;
+        connectRetryCount = 0;
+        cancelConnectRetry();
+        // Treat audio start as effective connection even when STATE CONN is stale.
+        lastAudioStartedMs = Date.now();
+        lastConnectedEvtMs = lastAudioStartedMs;
+        manualConnectArmed = false;
+        connectIntentUntilMs = 0;
+        els.stConn.textContent = 'YES';
+        if (pendingConnectMac || pendingConnectName) {
+          rememberDevice(pendingConnectMac, pendingConnectName);
+        }
+      }
+      if (line.includes('OK MODE')) {
+        const m = line.match(/OK\s+MODE\s+([A-Z]+)/);
+        if (m) {
+          const changed = els.stMode.textContent !== m[1];
+          els.stMode.textContent = m[1];
+          syncScanButton();
+          if (changed) scheduleStatus(300);
+        }
+      }
+      if (line.includes('OK BT')) {
+        const m = line.match(/OK\s+BT\s+(ON|OFF)/);
+        if (m) {
+          const changed = els.stBt.textContent !== m[1];
+          els.stBt.textContent = m[1];
+          if (changed) scheduleStatus(300);
+        }
+      }
+      if (line.includes('OK VOL')) {
+        const m = line.match(/OK\s+VOL\s+(\d+)/);
+        if (m) {
+          const changed = els.stVol.textContent !== m[1];
+          els.stVol.textContent = m[1];
+          const volInput = document.getElementById('volValue');
+          const volLabel = document.getElementById('volValueLabel');
+          if (volInput) volInput.value = m[1];
+          if (volLabel) volLabel.textContent = m[1];
+          if (changed) scheduleStatus(300);
+        }
+      }
+      if (line.includes('OK BOOST')) {
+        const m = line.match(/OK\s+BOOST\s+(\d+)/);
+        if (m) {
+          const changed = els.stBoost.textContent !== m[1];
+          els.stBoost.textContent = m[1];
+          const boostInput = document.getElementById('boostValue');
+          const boostLabel = document.getElementById('boostValueLabel');
+          if (boostInput) boostInput.value = m[1];
+          if (boostLabel) boostLabel.textContent = m[1];
+          if (changed) scheduleStatus(300);
+        }
+      }
+
+      if (line.startsWith('SCAN START')) {
+        scanInProgress = true;
+        devices = [];
+        selectedDeviceId = null;
+        if (!manualConnectArmed) {
+          // Fresh scan without an active manual connect should clear any stale short grace window.
+          connectIntentUntilMs = 0;
+        }
+        renderDevices();
+      }
+
+      const dev = line.match(/^DEV\s+(\d+)\s+([0-9A-F:]{17})\s+RSSI=(-?\d+)\s+NAME="([^"]*)"/i);
+      if (dev) {
+        const item = {
+          id: parseInt(dev[1], 10),
+          mac: dev[2].toUpperCase(),
+          rssi: parseInt(dev[3], 10),
+          name: dev[4] || ''
+        };
+
+        const idx = devices.findIndex((d) => d.id === item.id || d.mac === item.mac);
+        if (idx >= 0) devices[idx] = item;
+        else devices.push(item);
+        devices.sort((a, b) => a.id - b.id);
+
+        const hint = connectabilityHint(item.mac);
+        if (hint && !macHintWarned[item.mac]) {
+          macHintWarned[item.mac] = true;
+          addLog('Device #' + item.id + ' ' + item.mac + ' hint: ' + hint, 'warn');
+        }
+
+        if (selectedDeviceId === null) selectedDeviceId = item.id;
+        renderDevices();
+      }
+
+      const scanDone = line.match(/^SCAN\s+DONE\s+COUNT=(\d+)/i);
+      if (scanDone) {
+        scanInProgress = false;
+        if (!devices.length) renderDevices();
+        if (deferredConnectCmd) {
+          const pending = deferredConnectCmd;
+          deferredConnectCmd = '';
+          // Explicitly bypass duplicate guard for the deferred send path.
+          lastConnectCmd = '';
+          lastConnectCmdMs = 0;
+          cancelConnectRetry();
+          addLog('TX deferred ' + pending, 'ok');
+          setTimeout(() => sendBtCmd(pending), DEFERRED_CONNECT_DELAY_MS);
+        }
+      }
+    }
+
+    function connectDeviceId(id) {
+      if (typeof id !== 'number' || Number.isNaN(id)) return;
+      selectedDeviceId = id;
+      const d = devices.find((it) => it.id === id);
+      if (d) {
+        const issue = connectabilityIssue(d.mac);
+        if (issue) {
+          if (!isForceConnectEnabled()) {
+            addLog('CONNECT blocked for #' + id + ': ' + issue, 'warn');
+            renderDevices();
+            return;
+          }
+          addLog('Force CONNECT for #' + id + ': ' + issue, 'warn');
+        }
+        markConnectIntent(d.mac, d.name);
+      }
+      renderDevices();
+      sendBtCmd('CONNECT ' + id);
+    }
+
+    function renderDevices() {
+      const box = document.getElementById('devicesList');
+      if (!box) return;
+
+      if (!devices.length) {
+        box.innerHTML = '<div class="dev-empty">No devices yet. Press SCAN and wait for DEV lines.</div>';
+        return;
+      }
+
+      box.innerHTML = devices.map((d) => {
+        const safeName = (d.name || 'Unknown').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const active = d.id === selectedDeviceId ? ' active' : '';
+        const issue = connectabilityIssue(d.mac);
+        const forceMode = isForceConnectEnabled();
+        const connectDisabled = (issue && !forceMode) ? ' disabled' : '';
+        const title = issue ? (' title="' + issue.replace(/"/g, '&quot;') + '"') : '';
+        const note = issue ? ('<span class="muted"> (' + (forceMode ? 'unsupported, forced' : 'unsupported') + ')</span>') : '';
+        return (
+          '<div class="dev-row' + active + '">' +
+            '<input type="radio" name="devSel" ' + (d.id === selectedDeviceId ? 'checked' : '') + ' data-id="' + d.id + '">' +
+            '<div class="dev-main">' +
+              '<div class="dev-name">#' + d.id + ' ' + safeName + note + '</div>' +
+              '<div class="dev-sub">' + d.mac + ' | RSSI ' + d.rssi + ' dBm</div>' +
+            '</div>' +
+            '<button class="dev-btn" type="button" data-connect-id="' + d.id + '"' + connectDisabled + title + '>Connect</button>' +
+          '</div>'
+        );
+      }).join('');
+
+      box.querySelectorAll('input[name="devSel"]').forEach((el) => {
+        el.addEventListener('change', () => {
+          const id = parseInt(el.getAttribute('data-id'), 10);
+          if (!Number.isNaN(id)) {
+            selectedDeviceId = id;
+            renderDevices();
+          }
+        });
+      });
+
+      box.querySelectorAll('button[data-connect-id]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const id = parseInt(el.getAttribute('data-connect-id'), 10);
+          connectDeviceId(id);
+        });
+      });
+    }
+
+    function handleWsMessage(msg) {
+      try {
+        const data = JSON.parse(msg);
+        if (data.btline) {
+          const line = String(data.btline).trim();
+          if (shouldLogLine(line)) {
+            addLog(line, line.startsWith('ERR') ? 'bad' : (line.startsWith('OK') ? 'ok' : ''));
+          }
+          parseStateLine(line);
+          parseEvtLine(line);
+        }
+        return;
+      } catch (_) {
+        // plain text frame fallback
+      }
+
+      const txt = String(msg || '').trim();
+      if (!txt) return;
+      if (shouldLogLine(txt)) {
+        addLog(txt);
+      }
+      parseStateLine(txt);
+      parseEvtLine(txt);
+    }
+
+    function setupButtons() {
+      document.querySelectorAll('button[data-cmd]').forEach(btn => {
+        btn.addEventListener('click', () => sendBtCmd(btn.dataset.cmd));
+      });
+
+      syncScanButton();
+
+      document.getElementById('connectBtn').addEventListener('click', () => {
+        let v = document.getElementById('connectValue').value.trim();
+        if (!v) return;
+        v = v.replace(/^connect\s+/i, '').trim();
+        if (!v) return;
+        sendBtCmd('CONNECT ' + v);
+      });
+
+      document.getElementById('connectSelectedBtn').addEventListener('click', () => {
+        if (selectedDeviceId === null) {
+          addLog('No device selected', 'warn');
+          return;
+        }
+        connectDeviceId(selectedDeviceId);
+      });
+
+      const forceConnect = document.getElementById('forceConnect');
+      if (forceConnect) {
+        forceConnect.addEventListener('change', () => {
+          addLog('Force CONNECT ' + (forceConnect.checked ? 'ENABLED' : 'DISABLED'), 'warn');
+          renderDevices();
+        });
+      }
+
+      const volInput = document.getElementById('volValue');
+      const volLabel = document.getElementById('volValueLabel');
+      if (volInput && volLabel) {
+        volLabel.textContent = volInput.value;
+        volInput.addEventListener('input', () => {
+          volLabel.textContent = volInput.value;
+        });
+      }
+
+      const boostInput = document.getElementById('boostValue');
+      const boostLabel = document.getElementById('boostValueLabel');
+      if (boostInput && boostLabel) {
+        boostLabel.textContent = boostInput.value;
+        boostInput.addEventListener('input', () => {
+          boostLabel.textContent = boostInput.value;
+        });
+      }
+
+      document.getElementById('volBtn').addEventListener('click', () => {
+        let v = parseInt(document.getElementById('volValue').value, 10);
+        if (Number.isNaN(v)) return;
+        if (v < 0) v = 0;
+        if (v > 100) v = 100;
+        sendBtCmd('VOL ' + v);
+      });
+
+      document.getElementById('boostBtn').addEventListener('click', () => {
+        let v = parseInt(document.getElementById('boostValue').value, 10);
+        if (Number.isNaN(v)) return;
+        if (v < 100) v = 100;
+        if (v > 400) v = 400;
+        sendBtCmd('BOOST ' + v);
+      });
+
+      document.getElementById('rawBtn').addEventListener('click', () => {
+        const v = document.getElementById('rawCmd').value.trim();
+        if (!v) return;
+        sendBtCmd(v);
+      });
+
+      document.getElementById('clearLog').addEventListener('click', () => {
+        els.log.innerHTML = '';
+      });
+
+      document.getElementById('copyLog').addEventListener('click', async () => {
+        const txt = els.log.innerText || '';
+        if (!txt.trim()) {
+          addLog('Log is empty', 'warn');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(txt);
+          addLog('Log copied to clipboard', 'ok');
+        } catch (_) {
+          // Fallback for browsers with restricted clipboard permissions.
+          const ta = document.createElement('textarea');
+          ta.value = txt;
+          ta.setAttribute('readonly', 'readonly');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            addLog('Log copied to clipboard', 'ok');
+          } catch (_) {
+            addLog('Copy failed, select log manually', 'warn');
+          }
+          document.body.removeChild(ta);
+        }
+      });
+    }
+
+    function connectWs() {
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+      }
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        els.wsState.textContent = 'WS CONNECTED';
+        els.wsState.className = 'badge ok';
+        addLog('WebSocket connected', 'ok');
+        requestStatus();
+        if (statusTimer) clearInterval(statusTimer);
+        statusTimer = setInterval(requestStatus, STATUS_POLL_INTERVAL_MS);
+      };
+
+      ws.onmessage = (ev) => handleWsMessage(ev.data);
+
+      ws.onclose = () => {
+        els.wsState.textContent = 'WS DISCONNECTED';
+        els.wsState.className = 'badge bad';
+        addLog('WebSocket disconnected, retry in 2s', 'warn');
+        if (statusTimer) {
+          clearInterval(statusTimer);
+          statusTimer = null;
+        }
+        setTimeout(connectWs, 2000);
+      };
+
+      ws.onerror = () => {
+        addLog('WebSocket error', 'bad');
+      };
+    }
+
+    setupButtons();
+    fetch('logo.svg')
+      .then((r) => r.text())
+      .then((svg) => {
+        const logo = document.getElementById('logo');
+        if (logo) logo.innerHTML = svg;
+      })
+      .catch(() => {});
+
+    const ver = document.getElementById('version');
+    if (ver && typeof fwVersion !== 'undefined') {
+      ver.innerText = ' | v' + fwVersion;
+    }
+
+    connectWs();
+    renderDevices();
+  </script>
+</body>
+</html>

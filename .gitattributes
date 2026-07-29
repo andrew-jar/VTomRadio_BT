@@ -1,0 +1,39 @@
+# Enforce consistent line endings in the repository.
+* text=auto
+
+# Source and config files should stay LF to avoid Arduino/PlatformIO parser issues.
+*.h           text eol=lf
+*.hpp         text eol=lf
+*.c           text eol=lf
+*.cpp         text eol=lf
+*.ino         text eol=lf
+*.py          text eol=lf
+*.js          text eol=lf
+*.json        text eol=lf
+*.css         text eol=lf
+*.html        text eol=lf
+*.csv         text eol=lf
+*.md          text eol=lf
+*.ini         text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.txt         text eol=lf
+
+# Windows command scripts keep CRLF.
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binary assets must never be normalized.
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.ico         binary
+*.webp        binary
+*.vlw         binary
+*.ttf         binary
+*.otf         binary
+*.bin         binary
+*.zip         binary
+*.gz          binary
