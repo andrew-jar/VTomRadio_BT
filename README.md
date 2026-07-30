@@ -1,3 +1,4 @@
+<img width="500" height="523" alt="IR" src="https://github.com/user-attachments/assets/b82209c9-80c7-4168-8271-6acc44237af9" />
 Mod. Andrzej Jaroszuk
 
 VTomRadio_BT - wymagane srodowisko kompilacji (VS Code + PlatformIO)
@@ -38,12 +39,15 @@ Nawigacja w PRESETS:
 - `BLUE` -> wyczyszczenie wybranego slotu
 - `BACK` -> powrot do ekranu PLAYER
 
+<img width="500" height="523" alt="IR" src="https://github.com/user-attachments/assets/4555c16c-fd7e-4d3e-903b-a7384f46a0ad" />
+
 Dodatkowo:
 
 - `LIST` -> zwykla lista stacji `PLAYER <-> STATIONS`
 - w `IR Recorder` dodano kolorowe przyciski `RED`, `GREEN`, `YELLOW`, `BLUE` - nalezy je nauczyc tak samo jak pozostale przyciski pilota.
 
 Zegar:
+
 
 - godziny poranne wyswietlane sa z zerem wiodacym, np. `09:07`.
 
