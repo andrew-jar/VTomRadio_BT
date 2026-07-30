@@ -15,7 +15,7 @@
 #define LANGUAGE PL
 
 /* -- Wyświetlanie imienin -- Display name days --
-Supported languages: HU, PL, NL, GR, DE, CZ (UA Local/namedays/namedays_UA.h is not filled in.) */
+Supported languages: HU, PL, NL, GR, DE, CZ, SK (UA Local/namedays/namedays_UA.h is not filled in.) */
 #define NAMEDAYS_FILE PL
 
 #define USE_BUILTIN_LED false /* The RGB LED does not turn on.. */
@@ -30,7 +30,19 @@ Supported languages: HU, PL, NL, GR, DE, CZ (UA Local/namedays/namedays_UA.h is 
 
 /*----- LCD DISPLAY -----*/
 #define DSP_MODEL DSP_ILI9488
+//#define DSP_MODEL DSP_ILI9341
+//#define DSP_MODEL DSP_ST7789
 //#define DSP_MODEL DSP_ST7796
+
+/*----- SCREEN ROTATION -----*/
+// #define DEFAULT_SCREEN_ROTATION 3  /* 0-3 */
+
+/*----- LovyanGFX SPI bus speed -----*/
+/* Instabilny obraz? Możesz obniżyć częstotliwości przy słabym okablowaniu. */
+/* Unstable display? Lower frequencies can help with poor wiring quality. */
+// #define LGFX_LCD_FREQ_WRITE 30000000  // default: 40000000
+// #define LGFX_LCD_FREQ_READ  10000000  // default: 16000000
+// #define LGFX_TOUCH_SPI_FREQ   800000  // default: 2500000
 
 /*----- DISPLAY PIN SETS -----*/
 #define TFT_DC         9

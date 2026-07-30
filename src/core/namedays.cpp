@@ -17,6 +17,8 @@
   #include "../../locale/namedays/namedays_DE.h"    
 #elif NAMEDAYS_FILE == CZ
   #include "../../locale/namedays/namedays_CZ.h"
+#elif NAMEDAYS_FILE == SK
+  #include "../../locale/namedays/namedays_SK.h"
 #else
   #error "Unsupported NAMEDAYS_FILE"
 #endif

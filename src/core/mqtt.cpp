@@ -86,16 +86,13 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
     buf[len]='\0';
     if(cmd.exec(buf, "")) return;
     if (strcmp(buf, "turnoff") == 0) {
-      uint8_t sst = config.store.smartstart;
       config.setDspOn(0);
       player.sendCommand({PR_STOP, 0});
-      delay(100);
-      config.saveValue(&config.store.smartstart, sst);
       return;
     }
     if (strcmp(buf, "turnon") == 0) {
       config.setDspOn(1);
-      if (config.store.smartstart == 1) player.sendCommand({PR_PLAY, config.lastStation()});
+      if (config.isSmartStartEnabled()) player.sendCommand({PR_PLAY, config.lastStation()});
       return;
     }
     int volume;

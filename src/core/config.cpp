@@ -426,7 +426,6 @@ bool Config::prepareForPlaying(uint16_t stationId) {
     netserver.requestOnChange(MODE, 0);
     netserver.loop();
     netserver.loop();
-    if (store.smartstart != 2) { setSmartStart(0); }
     return true;
 }
 
@@ -443,7 +442,6 @@ void Config::configPostPlaying(uint16_t stationId) { // DLNA mod
         saveValue(&store.lastStation, stationId);
     }
 
-    if (store.smartstart != 2) { setSmartStart(1); }
     netserver.requestOnChange(MODE, 0);
     display.putRequest(PSTART);
 }
@@ -1500,13 +1498,17 @@ void Config::setSmartStart(uint8_t ss) {
     saveValue(&store.smartstart, ss);
 }
 
+void Config::setSmartStartEnabled(bool enabled) {
+    saveValue(&store.smartstart, static_cast<uint8_t>(enabled ? 1 : 0));
+}
+
 void Config::setVuBidirectional(bool val) {
     saveValue(&store.vuBidirectional, val);
 }
 
 void Config::setBalance(int8_t balance) {
     saveValue(&store.balance, balance);
-    player.setBalance(-store.balance); // "audio_change"  -16 to 16 fordítás 16 to -16
+    player.setBalance(store.balance);
     netserver.requestOnChange(BALANCE, 0);
 }
 

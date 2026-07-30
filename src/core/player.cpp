@@ -79,7 +79,7 @@ void Player::init() {
   #endif
   setOutputSampleRate(PLAYER_FORCE_OUTPUT_48KHZ ? Audio::SR_48000 : Audio::SR_ORIGIN);
 #endif
-  setBalance(-config.store.balance);  // "audio_change"   -16 to 16 fordítás 16 to -16
+  setBalance(config.store.balance);
   setTone(config.store.bass, config.store.middle, config.store.trebble);
   setVolumeSteps(21);  // Alapértelmezetten 21, ami 0-21-ig terjedő értékeket engedélyez. Ez a változtatás lehetővé teszi a finomabb hangerőszabályozást, különösen alacsonyabb hangerőszinteken.
   for (uint8_t i = 1; i <= 21; ++i) {
@@ -116,7 +116,6 @@ void Player::resetQueue() {
 }
 
 void Player::stopInfo() {
-  config.setSmartStart(0);
   netserver.requestOnChange(MODE, 0);
 }
 

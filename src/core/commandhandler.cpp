@@ -576,9 +576,7 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
     }
 
     if (strEquals(command, "smartstart")) {
-        uint8_t ss = atoi(value) == 1 ? 1 : 2;
-        if (!player.isRunning() && ss == 1) { ss = 0; }
-        config.setSmartStart(ss);
+        config.setSmartStartEnabled(atoi(value) == 1);
         return true;
     }
     if (strEquals(command, "audioinfo")) {

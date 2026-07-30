@@ -237,7 +237,7 @@ void setup() {
 #endif
     if (config.getMode() == PM_SDCARD) player.initHeaders(config.station.url);
     player.lockOutput = false;
-    if (config.store.smartstart == 1) { player.sendCommand({PR_PLAY, config.lastStation()}); }
+    if (config.isSmartStartEnabled()) { player.sendCommand({PR_PLAY, config.lastStation()}); }
     clock_tts_setup();
     startClockTtsTask();
     Audio::audio_info_callback = my_audio_info; // "audio_change" audiohandlers.h ban kezelve.
