@@ -1,4 +1,3 @@
-<img width="500" height="523" alt="IR" src="https://github.com/user-attachments/assets/b82209c9-80c7-4168-8271-6acc44237af9" />
 Mod. Andrzej Jaroszuk
 
 VTomRadio_BT - wymagane srodowisko kompilacji (VS Code + PlatformIO)
