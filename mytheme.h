@@ -84,12 +84,12 @@
 #define COLOR_PLAYLIST_4           25,  25,  25
 
 /*----- PRESETS -----*/
-#define COLOR_PRST_BUTTON            14,  21,  30
-#define COLOR_PRST_CARD              14,  21,  30
-#define COLOR_PRST_ACCENT             0,  32,  66
-#define COLOR_PRST_FAV               41, 255,  76
-#define COLOR_PRST_TITLE_1          255, 255, 255
-#define COLOR_PRST_TITLE_2          153, 153, 153
-#define COLOR_PRST_TITLE_3          150, 150, 150
-#define COLOR_PRST_LINE              92,  92,  92
+#define COLOR_PRST_BUTTON            14,  21,  30  // Tlo przyciskow pomocniczych/klawiatury w PRESETS
+#define COLOR_PRST_CARD              14,  21,  30  // Tlo pustej karty presetu
+#define COLOR_PRST_ACCENT             0,  32,  66  // Tlo karty z zapisana stacja (wypelniony slot)
+#define COLOR_PRST_FAV               41, 255,  76  // Podswietlenie aktywnego banku FAV (wybrany bank)
+#define COLOR_PRST_TITLE_1          255, 255, 255  // Glowny tekst w PRESETS (topbar, pierwsza linia)
+#define COLOR_PRST_TITLE_2          153, 153, 153  // Drugorzedny tekst w PRESETS (druga linia)
+#define COLOR_PRST_TITLE_3          150, 150, 150  // Tekst nieaktywnego banku FAV
+#define COLOR_PRST_LINE              92,  92,  92  // Linie podzialu/separatory w PRESETS
 // clang-format on
