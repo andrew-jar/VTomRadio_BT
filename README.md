@@ -38,9 +38,9 @@ Nawigacja w PRESETS:
 - `BLUE` -> wyczyszczenie wybranego slotu
 - `BACK` -> powrot do ekranu PLAYER
 
-- Foto IR Recorder (kolorowe przyciski PRESETS/FAV):
+Foto IR Recorder (kolorowe przyciski PRESETS/FAV):
 
-- RED / GREEN / YELLOW / BLUE dodane do mapowania IR i nauki kodow pilota.
+RED / GREEN / YELLOW / BLUE dodane do mapowania IR i nauki kodow pilota.
 
 <img width="500" height="523" alt="IR" src="https://github.com/user-attachments/assets/4555c16c-fd7e-4d3e-903b-a7384f46a0ad" />
 
@@ -53,6 +53,4 @@ Zegar:
 
 
 - godziny poranne wyswietlane sa z zerem wiodacym, np. `09:07`.
-
-
 
