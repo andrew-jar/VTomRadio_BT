@@ -154,12 +154,18 @@ static uint8_t s_keyCount = 0;
 // -------------------- Storage --------------------
 static Preferences s_prefs;
 static bool        s_inited = false;
+static SemaphoreHandle_t s_prefsMux = nullptr;
+static bool s_inIrContext = false;
 
 static void ensurePrefs() {
     if (s_inited) { return; }
+    if (!s_prefsMux) s_prefsMux = xSemaphoreCreateMutex();
     s_prefs.begin("presets", false); // NVS namespace
     s_inited = true;
 }
+static inline void prefsLock() { if (s_prefsMux) xSemaphoreTake(s_prefsMux, pdMS_TO_TICKS(2000)); }
+static inline void prefsUnlock() { if (s_prefsMux) xSemaphoreGive(s_prefsMux); }
+
 static const uint8_t SLOTS = 8; // A memóriagombok száma.
 static char          presetName[SLOTS][64];
 static char          presetUrl[SLOTS][256];
@@ -198,6 +204,8 @@ static inline int16_t FAV_TOP() {
 // -------------------- Helpers --------------------
 static int s_pressedSlot = -1;
 static int s_lastDrawnPressed = -1;
+
+void presets_setIrContext(bool inIr) { s_inIrContext = inIr; }
 
 void presets_setPressedSlot(int slot) {
     s_pressedSlot = slot;
@@ -911,6 +919,11 @@ void presets_clearPressed() {
 void presets_drawScreen() {
     ensurePrefs();
     ensurePresetsCanvas();
+    // FIX: after presets.csv import NVS changed but RAM cache was stale -> force reload
+    // this makes imported FAV visible without restart
+    s_cacheValid = false;
+    for (uint8_t i=0;i<5;i++) s_sanitizedBanks[i]=false;
+    loadBankCache();
 
     // 1. BETÖLTÉS A CIKLUS ELEJÉN
     ensureFont();
@@ -1021,15 +1034,34 @@ bool presets_keyboardTap(uint16_t x, uint16_t y) {
     return changed;
 }
 
+bool presets_isEmpty(uint8_t bank, uint8_t slot) {
+    if (slot >= SLOTS || bank >= FAVS) return true;
+    ensurePrefs();
+    char key[20];
+    if (bank == s_bank && s_cacheValid) {
+        return presetUrl[slot][0] == 0;
+    }
+    makeKey(key, sizeof(key), bank, slot, "url");
+    String u = s_prefs.getString(key, "");
+    return u.length() == 0;
+}
+
+bool presets_isEmptyCurrentBank(uint8_t slot) {
+    return presets_isEmpty(s_bank, slot);
+}
+
 bool presets_save(uint8_t slot) {
     if (slot >= SLOTS) { return false; }
     ensurePrefs();
+    prefsLock();
+    bool fromIr = s_inIrContext;
     if (strlen(config.station.url) == 0) {
+        prefsUnlock();
         char msg[32];
         strncpy_P(msg, LANG::prstNoUrl, sizeof(msg) - 1);
         msg[sizeof(msg) - 1] = 0;
         drawToastTopBar(msg);
-        return true; // ne lépjünk ki
+        return true;
     }
     const char* url = config.station.url;
     const char* name = config.station.name;
@@ -1043,20 +1075,24 @@ bool presets_save(uint8_t slot) {
     uint16_t id = config.lastStation();
     if (id == 0 || id > config.playlistLength()) { id = findStationIdByUrl(url); }
     if (id >= 1 && id <= config.playlistLength()) {
-        char key[20];
-        makeKey(key, sizeof(key), s_bank, slot, "id");
-        s_prefs.putUShort(key, id);
+        char key2[20];
+        makeKey(key2, sizeof(key2), s_bank, slot, "id");
+        s_prefs.putUShort(key2, id);
     }
-    // ---- cache frissítése ----
     strncpy(presetName[slot], name, sizeof(presetName[slot]) - 1);
     presetName[slot][sizeof(presetName[slot]) - 1] = 0;
     strncpy(presetUrl[slot], url, sizeof(presetUrl[slot]) - 1);
     presetUrl[slot][sizeof(presetUrl[slot]) - 1] = 0;
     presetId[slot] = id;
+    prefsUnlock();
+    if (fromIr) {
+        // from IR task - only request redraw, don't touch sprite here to avoid mutex clash
+        display.putRequest(DRAWPLAYLIST, slot);
+        return true;
+    }
     drawSlot(slot, false, true);
     int16_t x, y, w, h;
     slotRect(slot, x, y, w, h);
-    // AZONNAL kirakjuk a mentett gombot
     presetsBlitRect(x, y, w, h);
     s_flashSlot = slot;
     s_flashUntil = millis() + 2500;
@@ -1066,6 +1102,7 @@ bool presets_save(uint8_t slot) {
     drawToastTopBar(msg);
     return true;
 }
+
 
 bool presets_play(uint8_t slot) {
     if (slot >= SLOTS) { return false; }
@@ -1105,6 +1142,8 @@ bool presets_play(uint8_t slot) {
 bool presets_clear(uint8_t slot) {
     if (slot >= SLOTS) { return false; }
     ensurePrefs();
+    prefsLock();
+    bool fromIr = s_inIrContext;
     char key[20];
     makeKey(key, sizeof(key), s_bank, slot, "url");
     s_prefs.remove(key);
@@ -1112,14 +1151,17 @@ bool presets_clear(uint8_t slot) {
     s_prefs.remove(key);
     makeKey(key, sizeof(key), s_bank, slot, "id");
     s_prefs.remove(key);
-    // cache ürítése is!
     presetUrl[slot][0] = 0;
     presetName[slot][0] = 0;
     presetId[slot] = 0;
+    prefsUnlock();
+    if (fromIr) {
+        display.putRequest(DRAWPLAYLIST, slot);
+        return true;
+    }
     drawSlot(slot, false, false);
     int16_t x, y, w, h;
     slotRect(slot, x, y, w, h);
-    // AZONNAL kirakjuk a törölt kártyát
     presetsBlitRect(x, y, w, h);
     char msg[32];
     strncpy_P(msg, LANG::prstDeleted, sizeof(msg) - 1);
@@ -1127,4 +1169,11 @@ bool presets_clear(uint8_t slot) {
     drawToastTopBar(msg);
     return true;
 }
+
+void presets_reload() {
+    s_cacheValid = false;
+    for (uint8_t i=0;i<5;i++) s_sanitizedBanks[i]=false;
+    loadBankCache();
+}
+
 #endif

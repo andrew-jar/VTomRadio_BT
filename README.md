@@ -27,12 +27,27 @@ Schemat podłączenia wroom do esp32s3:
 
 Wejscie/wyjscie PRESETS:
 
-- przytrzymaj `LIST` dluzej niz 1 sekunde
+- `RED` -> wejscie / wyjscie PRESETS
 
 Nawigacja w PRESETS:
 
 - `VOL-` / `VOL+` -> zmiana banku `FAV1..FAV5`
 - `PREV` / `NEXT` -> zmiana slotu
-- `PLAY/STOP` -> odtworzenie wybranego presetu
+- `GREEN` -> odtworzenie wybranego presetu
+- `YELLOW` -> zapis aktualnie granej stacji do wybranego slotu
+- `BLUE` -> wyczyszczenie wybranego slotu
 - `BACK` -> powrot do ekranu PLAYER
+
+Dodatkowo:
+
+- `LIST` -> zwykla lista stacji `PLAYER <-> STATIONS`
+- w `IR Recorder` dodano kolorowe przyciski `RED`, `GREEN`, `YELLOW`, `BLUE` - nalezy je nauczyc tak samo jak pozostale przyciski pilota.
+
+Zegar:
+
+- godziny poranne wyswietlane sa z zerem wiodacym, np. `09:07`.
+
+Foto IR Recorder (kolorowe przyciski PRESETS/FAV):
+
+- RED / GREEN / YELLOW / BLUE dodane do mapowania IR i nauki kodow pilota.
 

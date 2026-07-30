@@ -18,6 +18,40 @@
 #include "../pluginsManager/pluginsManager.h"
 #include "../plugins/backlight/backlight.h"
 
+// --- FIX: brakujące definicje IR + overflow fix ---
+#ifndef IR_BUTTON_COUNT
+#define IR_POWER        0
+#define IR_PLAY_STOP    1
+#define IR_BACK         2
+#define IR_PREV         3
+#define IR_LIST         4
+#define IR_NEXT         5
+#define IR_VOLUME_DOWN  6
+#define IR_MODE         7
+#define IR_VOLUME_UP    8
+#define IR_1            9
+#define IR_2            10
+#define IR_3            11
+#define IR_4            12
+#define IR_5            13
+#define IR_6            14
+#define IR_7            15
+#define IR_8            16
+#define IR_9            17
+#define IR_0            18
+#define IR_RED          19
+#define IR_GREEN        20
+#define IR_YELLOW       21
+#define IR_BLUE         22
+#define IR_BUTTON_COUNT 23
+#endif
+#ifndef IR_RED
+#define IR_RED 19
+#define IR_GREEN 20
+#define IR_YELLOW 21
+#define IR_BLUE 22
+#endif
+
 long encOldPosition = 0;
 long enc2OldPosition = 0;
 int  lpId = -1;
@@ -358,15 +392,12 @@ void irBackspace() {
 }
 
 #if IR_PRESETS_NAV
-// IR quick help: hold LIST (>1s) to toggle PRESETS.
+// IR quick help: RED toggles PRESETS.
 // In PRESETS: VOL-/VOL+ changes FAV bank, PREV/NEXT moves slots, PLAY starts selected preset, BACK exits.
 static const uint8_t  IR_PRESET_SLOTS = 8;
-static const uint32_t IR_PRESETS_LIST_HOLD_MS = 1000UL;
 static const uint32_t IR_PRESETS_TOGGLE_GUARD_MS = 900UL;
 static int8_t         s_irPresetSlot = 0;
 static uint32_t       s_irPresetToggleGuardUntilMs = 0;
-static uint32_t       s_irListPressStartMs = 0;
-static bool           s_irListHoldHandled = false;
 #endif
 static int      s_irLastDecodedTarget = -1;
 static uint32_t s_irLastDecodedMs = 0;
@@ -519,17 +550,6 @@ void irLoop() {
         }
         // if (!irResults.repeat /* && irResults.command!=0*/) { irVolRepeat = 0; }
         if (irResults.repeat) {
-#if IR_PRESETS_NAV
-            if (s_irLastDecodedTarget == IR_LIST && !s_irListHoldHandled) {
-                const uint32_t now = millis();
-                if ((uint32_t)(now - s_irListPressStartMs) >= IR_PRESETS_LIST_HOLD_MS) {
-                    s_irListHoldHandled = true;
-                    irTogglePresetsGuarded();
-                    irrecv.resume();
-                    return;
-                }
-            }
-#endif
             switch (irVolRepeat) {
                 case 1: controlsEvent(display.mode() == STATIONS ? false : true); break;
 
@@ -540,7 +560,7 @@ void irLoop() {
         } else {
             irVolRepeat = 0;
         }
-        for (int target = 0; target < 19; target++) {
+        for (int target = 0; target < IR_BUTTON_COUNT; target++) {
             for (int j = 0; j < 3; j++) {
                 // Serial.printf("Comparing with target %d, slot %d: 0x%08lX == 0x%08lX\n", target, j, (uint32_t)config.ircodes.irVals[target][j], (uint32_t)irResults.value);
                 if (config.ircodes.irVals[target][j] == irResults.value) {
@@ -554,12 +574,7 @@ void irLoop() {
                     }
                     s_irLastDecodedTarget = target;
                     s_irLastDecodedMs = millis();
-#if IR_PRESETS_NAV
-                    if (target == IR_LIST) {
-                        s_irListPressStartMs = s_irLastDecodedMs;
-                        s_irListHoldHandled = false;
-                    }
-#endif
+                    Serial.printf("[IR] decoded target=%d code=0x%08lX\n", target, (uint32_t)irResults.value);
                     registerUserActivity();
                     if (display.mode() == SCREENSAVER || display.mode() == SCREENBLANK) {
                         display.putRequest(NEWMODE, PLAYER);
@@ -646,6 +661,44 @@ void irLoop() {
                             display.putRequest(NEWMODE, display.mode() == PLAYER ? STATIONS : PLAYER);
                             break;
                         }
+                        case IR_RED: {
+#if IR_PRESETS_NAV
+                            irTogglePresetsGuarded();
+#endif
+                            break;
+                        }
+                        case IR_GREEN: {
+#if IR_PRESETS_NAV
+                            if (display.mode() == PRESETS) {
+                                irPresetsPlaySelected();
+                            }
+#endif
+                            break;
+                        }
+                        case IR_YELLOW: {
+#if IR_PRESETS_NAV
+                            if (display.mode() == PRESETS) {
+                                if (s_irPresetSlot >= 0 && s_irPresetSlot < IR_PRESET_SLOTS) {
+                                    presets_setIrContext(true);
+                                    presets_save((uint8_t)s_irPresetSlot);
+                                    presets_setIrContext(false);
+                                }
+                            }
+#endif
+                            break;
+                        }
+                        case IR_BLUE: {
+#if IR_PRESETS_NAV
+                            if (display.mode() == PRESETS) {
+                                if (s_irPresetSlot >= 0 && s_irPresetSlot < IR_PRESET_SLOTS) {
+                                    presets_setIrContext(true);
+                                    presets_clear((uint8_t)s_irPresetSlot);
+                                    presets_setIrContext(false);
+                                }
+                            }
+#endif
+                            break;
+                        }
                         case IR_VOLUME_DOWN: {
 #if IR_PRESETS_NAV
                             if (display.mode() == PRESETS) {
@@ -714,7 +767,7 @@ void irLoop() {
                         }
 
                     } /* switch (target) */
-                    target = 19;
+                    target = IR_BUTTON_COUNT;
                     break;
                 } /* if(config.ircodes.irVals[target][j]==irResults.value) */
             } /* for(int j=0; j<3; j++) */
@@ -863,7 +916,9 @@ void onBtnClick(int id) {
                 return;
             }
         }
-        if (id == EVT_BTNCENTER || id == EVT_ENCBTNB) {
+        if (id == EVT_BTNCENTER || id == EVT_ENCBTNB || id == EVT_ENC2BTNB) {
+            if (s_irPresetSlot < 0 || s_irPresetSlot >= IR_PRESET_SLOTS) s_irPresetSlot = 0;
+            Serial.printf("[PRESETS] BTN Click %d -> play slot %d\n", id, s_irPresetSlot);
             presets_play((uint8_t)s_irPresetSlot);
             return;
         }

@@ -204,9 +204,6 @@ bool ClockWidget::_getTime() {
     } else {
         strftime(_timebuffer, sizeof(_timebuffer), "%H:%M", &_drawTimeinfo);
     }
-    if (_timebuffer[0] == '0') {
-        _timebuffer[0] = ' '; // Ha az első számjegy 0, szóközre cseréljük (azonos karakterszélességhez)
-    }
     const bool hasValidTime = _drawTimeinfo.tm_year > 100;
     const bool timeChanged = (_lastRenderedHour != _drawTimeinfo.tm_hour) || (_lastRenderedMinute != _drawTimeinfo.tm_min);
     bool       ret = (hasValidTime && (_drawTimeinfo.tm_sec == 0 || timeChanged)) || _forceflag != _drawTimeinfo.tm_year;

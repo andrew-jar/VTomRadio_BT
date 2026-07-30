@@ -15,6 +15,7 @@ void presets_drawScreen();
 void presets_drawPressed();
 void presets_clearPressed();
 void presets_setPressedSlot(int slot);
+void presets_setIrContext(bool inIr);
 
 // Hit-test helpers:
 int  presets_hitTest(uint16_t x, uint16_t y);        // returns 0..11 or -1
@@ -35,8 +36,11 @@ bool presets_save(uint8_t slot);
 bool presets_play(uint8_t slot);
 
 bool presets_clear(uint8_t slot);
+bool presets_isEmpty(uint8_t bank, uint8_t slot);
+bool presets_isEmptyCurrentBank(uint8_t slot);
 void presets_drawHoldBar(uint32_t heldMs);
 void presets_clearHoldBar();
 bool presets_toastExpired();
 
 void sanitizePresets(uint8_t bank);
+void presets_reload();
