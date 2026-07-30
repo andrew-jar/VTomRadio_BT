@@ -16,6 +16,10 @@
 #include "timekeeper.h"
 #include "../displays/widgets/widgetsconfig.h"
 
+#ifndef IR_BUTTON_COUNT
+#define IR_BUTTON_COUNT 23
+#endif
+
 #ifdef USE_DLNA  //DLNA mod
   #include "../dlna/dlna_index.h"
   #include "../dlna/dlna_service.h"
@@ -505,7 +509,7 @@ static String buildIrCodesCsv() {
   out.reserve(900);
   out += "button,bank0,bank1,bank2\n";
   char valBuf[32];
-  for (int btn = 0; btn < 24; btn++) {
+  for (int btn = 0; btn < IR_BUTTON_COUNT; btn++) {
     out += String(btn);
     for (int bank = 0; bank < 3; bank++) {
       snprintf(valBuf, sizeof(valBuf), ",0x%llX", config.ircodes.irVals[btn][bank]);
@@ -554,7 +558,7 @@ static bool importIrCodesCsv(const String &csv, String &error) {
       error = "invalid button index";
       return false;
     }
-    if (btnIdx < 0 || btnIdx >= 24) {
+    if (btnIdx < 0 || btnIdx >= IR_BUTTON_COUNT) {
       error = "button index out of range";
       return false;
     }
