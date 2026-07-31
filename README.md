@@ -1,6 +1,7 @@
 VTomRadio_BT (bluetooth) - Mod. Andrzej Jaroszuk.
 
-Moje modyfikacje bazujące na projekcie VTomRadio kolegi VaraiTamas.
+Moja modyfikacja oparta na projekcie VTomRadio kolegi VaraiTamas.
+
 ---------------------------------------------------------------------
 
 Wymagane srodowisko kompilacji (VS Code + PlatformIO)
@@ -29,11 +30,11 @@ Schemat podłączenia wroom do esp32s3:
 
 --------------------------------------------
 
-## presets.cpp 
+## presets.cpp
 
-- Usunąłem fałszywy partial refresh, 
-- włączyłem realny partial update i przeniosłem bufor do PSRAM, 
-dzięki czemu UI działa szybciej i zużywa mniej RAM
+- Usunąłem fałszywy partial refresh.
+- Włączyłem realny partial update i przeniosłem bufor do PSRAM.
+- Dzięki temu UI działa szybciej i zużywa mniej RAM.
 
 --------------------------------------------
 
@@ -47,7 +48,7 @@ W tym mod. dodalem pelna obsluge FAV na pilocie IR, wiec dziala rowniez na zwykl
 
 ---------------------------------------------
 
-Wejscie/wyjscie PRESETS:Wejscie/wyjscie PRESETS:
+Wejście/wyjście PRESETS:
 
 - `RED` -> wejscie / wyjscie PRESETS
 
