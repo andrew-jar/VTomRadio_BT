@@ -23,11 +23,11 @@ Schemat podłączenia wroom do esp32s3:
 <img width="1147" height="806" alt="schemat" src="https://github.com/user-attachments/assets/7cf0fc9e-f626-4a39-ba9b-1448d093fd7e" />
 
 ## Pilot IR - Presets/FAV
----------------------------------------------------------------------------------
-Dostepne zarowno dla wyświetlaczy dotykowych jak i bez dotyku!
 
-Oryginalny VTomRadio pozwala na obsługe ulubionych FAV tylko na ekranie dotykowym !!!. 
-W tym mod. dodalem pelna obsluge FAV na pilocie IR, wiec dziala rowniez na zwyklych wyswietlaczach bez toucha (np. ST7789, ILI9341).
+---------------------------------------------------------------------------------
+Oryginalny VTomRadio pozwala na obsluge ulubionych FAV tylko na ekranie dotykowym !!!.
+ 
+W tym mod. dodalem pelna obsluge FAV na pilocie IR,  wiec dziala rowniez imna zwyklych wyswietlaczach bez toucha (np. ST7789, ILI9341) jak i z touch.
 -------------------------------------------------------------------------------------
 
 
