@@ -28,6 +28,8 @@ https://github.com/andrew-jar/WROOM_A2DP
 Schemat podłączenia wroom do esp32s3: 
 <img width="1147" height="806" alt="schemat" src="https://github.com/user-attachments/assets/7cf0fc9e-f626-4a39-ba9b-1448d093fd7e" />
 
+Schemat zasilania (filtrowanie, kondensatory):
+
 --------------------------------------------
 
 ## presets.cpp
