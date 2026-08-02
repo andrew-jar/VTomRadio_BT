@@ -113,5 +113,6 @@ Zegar:
 
 Dodano funkcję eksportu i importu presetów (lista FAV), dostępną z poziomu panelu UI.
 Plik z presetami jest zapisywany w katalogu Data/data jako presets.csv.
+
 Funkcja Export/Import presets.csv jest widoczna, gdy w konfiguracji włączony jest co najmniej jeden interfejs sterowania: IR lub ekran dotykowy (Touch).
 
