@@ -2,10 +2,11 @@
 VTomRadio_BT (bluetooth) - Mod. Andrzej Jaroszuk.
 
 Moja modyfikacja oparta na projekcie VTomRadio kolegi VaraiTamas.
+---------------------------------------------------------------------
 
 ## Credits
 
-- ADD st7789 (4 x): [MaSo-CZ Marek Zettik](https://github.com/MaSo-CZ)
+- ADD st7789 : [MaSo-CZ Marek Zettik](https://github.com/MaSo-CZ)
 
 ---------------------------------------------------------------------
 
@@ -19,7 +20,7 @@ Wymagane narzedzia
 - VS Code: stabilna wersja (zalecana aktualna)
 - Rozszerzenie VS Code: `PlatformIO IDE` (publisher: `platformio`)
 - PlatformIO Core: `6.1.19`
-- Python (dla PlatformIO): 3.9+ (zalecane 3.10/3.11)
+- Python (dla PlatformIO): 3.9+ (zalecane 3.10/3.13.7)
 
 Do pełnego szczęścia musisz wgrać jeszcze z repo : "WROOM_A2DP"  na dodatkowy esp32 Wroom
 
@@ -35,6 +36,28 @@ Schemat podłączenia wroom do esp32s3:
 
 Schemat zasilania ESP32-S3 i WROOM (filtrowanie, kondensatory odsprzęgające):
 <img width="1271" height="845" alt="schemat_zasilania" src="https://github.com/user-attachments/assets/5da29161-37b0-4239-9faf-ba5b462d1adc" />
+
+--------------------------------------------
+
+## Aktualizacja BT panel (bt.html)
+
+- Ograniczono zakres glosnosci w panelu BT: `VOL 0..85`.
+- Ograniczono zakres podbicia: `BOOST 80..200`.
+- Wysylka komend z przyciskow `SET VOL` i `SET BOOST` ma dodatkowy clamp po stronie JS,
+  wiec panel nie wysyla wartosci poza bezpieczny zakres.
+- `DISCONNECT` oraz `BT OFF` czyszcza liste `Detected Devices` w UI,
+  zeby nie zostawac ze starym wynikiem skanowania.
+
+
+### bt_popup (popup polaczenia BT)
+
+- Popup uruchamia sie po zdarzeniu `EVT A2DP_CONN CONNECTED`.
+- Wyswietla nazwe urzadzenia i adres MAC pobrany z WROOM.
+- Popup jest tymczasowy: znika automatycznie po ok. 4 sekundach.
+- W trakcie aktywnego popupu nawigacja UI (zmiana ekranu/listy) zamyka popup,
+  aby nie blokowac normalnej obslugi.
+- Po zamknieciu wykonywany jest powrot do widoku PLAYER (redraw),
+  zeby ekran nie zostawal z artefaktem okna popup.
 
 --------------------------------------------
 

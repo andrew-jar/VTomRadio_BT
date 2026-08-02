@@ -18,6 +18,7 @@
 #include "fonts.h"
 #include "serial_littlefs.h"
 #include "touchscreen.h"
+#include "../plugins/bt_popup/bt_popup.h"
 // #define LGFX_USE_PNG
 
 Display display;
@@ -491,6 +492,9 @@ void Display::_swichMode(displayMode_e newmode) {
 #    ifdef USE_NEXTION
     nextion.putRequest({NEWMODE, newmode});
 #    endif
+    if (newmode != _mode) {
+        btPopupCancel();
+    }
     if (newmode == PRESETS && _mode == PRESETS) {
         presets_drawScreen();
         return;
@@ -685,6 +689,83 @@ void Display::loop() {
         }
         return;
     }
+
+    if (btPopupActive && hasPendingRequest
+        && (pendingRequest.type == NEWMODE || pendingRequest.type == NEWSTATION || pendingRequest.type == NEXTSTATION || pendingRequest.type == DRAWPLAYLIST)) {
+        btPopupCancel();
+    }
+
+    static bool   s_popupDrawn = false;
+    static int    s_lastSec = -1;
+    static String s_lastName = "";
+    static String s_lastMac = "";
+    static bool   s_wasPopupActive = false;
+
+    if (btPopupActive) {
+        s_wasPopupActive = true;
+        if (static_cast<int32_t>(millis() - btPopupUntil) >= 0) {
+            btPopupActive = false;
+            return;
+        }
+
+        const int32_t remainingMs = static_cast<int32_t>(btPopupUntil - millis());
+        int           sec = (remainingMs > 0) ? (remainingMs / 1000) + 1 : 0;
+        if (sec < 0) sec = 0;
+        if (sec > 4) sec = 4;
+
+        if (!s_popupDrawn || s_lastSec != sec || s_lastName != btPopupName || s_lastMac != btPopupMac) {
+            Serial.printf("[DISP] popup sec=%d until=%lu now=%lu\n", sec, btPopupUntil, millis());
+            const int boxX = 10;
+            const int boxY = 50;
+            const int boxW = 220;
+            const int boxH = 100;
+            dsp.fillRoundRect(boxX, boxY, boxW, boxH, 8, TFT_BLACK);
+            dsp.drawRoundRect(boxX, boxY, boxW, boxH, 8, TFT_CYAN);
+            dsp.setTextColor(TFT_CYAN, TFT_BLACK);
+            dsp.setTextSize(2);
+            dsp.setCursor(20, 60);
+            dsp.print("Polaczono BT");
+
+            dsp.setTextColor(TFT_WHITE, TFT_BLACK);
+            dsp.setTextSize(2);
+            dsp.setCursor(20, 85);
+            dsp.print(btPopupName.substring(0, 18));
+
+            dsp.setTextSize(1);
+            dsp.setCursor(20, 115);
+            dsp.print(btPopupMac);
+
+            dsp.setCursor(20, 132);
+            dsp.setTextColor(TFT_GREEN, TFT_BLACK);
+            dsp.printf("Powrot za %ds", sec);
+
+            dsp.fillRoundRect(190, 60, 24, 24, 4, TFT_BLUE);
+            dsp.setCursor(196, 68);
+            dsp.setTextColor(TFT_WHITE, TFT_BLUE);
+            dsp.print("BT");
+
+            s_popupDrawn = true;
+            s_lastSec = sec;
+            s_lastName = btPopupName;
+            s_lastMac = btPopupMac;
+        }
+
+        return;
+    }
+
+    if (s_wasPopupActive) {
+        s_wasPopupActive = false;
+        Serial.println("[DISP] CLEAR POPUP -> PLAYER REDRAW");
+        dsp.fillRect(8, 48, 224, 104, TFT_BLACK);
+        if (_mode == PLAYER) {
+            _pager->setPage(pages[PG_PLAYER], true);
+        }
+    }
+
+    s_popupDrawn = false;
+    s_lastSec = -1;
+    s_lastName = "";
+    s_lastMac = "";
 
     _refreshStatusWidgets();
     _pager->loop();

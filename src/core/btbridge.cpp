@@ -5,6 +5,7 @@
 #include "config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "../plugins/bt_popup/bt_popup.h"
 
 BtBridge btBridge;
 
@@ -138,6 +139,7 @@ static void parseStateLine(const char* line) {
     // Prioritize explicit events from the BT stack over unreliable CONN=0 state snapshots.
     if (strstr(line, "EVT A2DP_CONN DISCONNECTED") != nullptr || strstr(line, "EVT A2DP_CONN DISCONNECTING") != nullptr) {
         g_connected = false;
+        btConnected = false;
         g_recentAudioStarted = false;
         g_lastAudioStartedMs = 0;
         return;
@@ -146,6 +148,43 @@ static void parseStateLine(const char* line) {
     if (strstr(line, "EVT A2DP_CONN CONNECTED") != nullptr) {
         g_seenConnectEvent = true;
         g_connected = true;
+        btConnected = true;
+
+        String mac = "";
+        String name = "Bluetooth";
+        const char* macPos = strstr(line, "MAC=");
+        if (macPos) {
+            macPos += 4;
+            const char* macEnd = strchr(macPos, ' ');
+            if (macEnd) {
+                mac = String(macPos).substring(0, macEnd - macPos);
+            } else {
+                mac = String(macPos);
+            }
+            mac.trim();
+        }
+        const char* namePos = strstr(line, "NAME=");
+        if (namePos) {
+            namePos += 5;
+            if (*namePos == '"') {
+                ++namePos;
+                const char* nameEnd = strchr(namePos, '"');
+                if (nameEnd && nameEnd > namePos) {
+                    name = String(namePos).substring(0, nameEnd - namePos);
+                }
+            } else {
+                const char* nameEnd = strchr(namePos, ' ');
+                if (nameEnd && nameEnd > namePos) {
+                    name = String(namePos).substring(0, nameEnd - namePos);
+                } else {
+                    name = String(namePos);
+                }
+            }
+            name.trim();
+        }
+        if (name.length() == 0) name = "Bluetooth";
+        btPopupShow(name, mac);
+
         int v = config.store.volume;
         if (v < 0) v = 0;
         if (v > 100) v = 100;
