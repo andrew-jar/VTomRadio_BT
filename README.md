@@ -45,8 +45,8 @@ Schemat zasilania ESP32-S3 i WROOM (filtrowanie, kondensatory odsprzęgające):
 - Ograniczono zakres podbicia: `BOOST 80..200`.
 - Wysylka komend z przyciskow `SET VOL` i `SET BOOST` ma dodatkowy clamp po stronie JS,
   wiec panel nie wysyla wartosci poza bezpieczny zakres.
-- `DISCONNECT` oraz `BT OFF` czyszcza liste `Detected Devices` w UI,
-  zeby nie zostawac ze starym wynikiem skanowania.
+- `DISCONNECT` oraz `BT OFF` czysci liste `Detected Devices` w UI,
+  ze starego wyniku skanowania.
 
 
 ### bt_popup (popup polaczenia BT)
