@@ -187,6 +187,11 @@
       color: var(--bt-muted);
     }
 
+    #volBtn,
+    #boostBtn {
+      width: 110px;
+    }
+
     .row {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -459,8 +464,8 @@
 
       <div class="row">
         <div class="sliderbox">
-          <div class="sliderlabel">Volume: <strong id="volValueLabel">100</strong></div>
-          <input id="volValue" type="range" min="0" max="100" value="100" />
+          <div class="sliderlabel">Volume: <strong id="volValueLabel">70</strong></div>
+          <input id="volValue" type="range" min="0" max="85" value="70" />
         </div>
         <button id="volBtn">SET VOL</button>
       </div>
@@ -468,7 +473,7 @@
       <div class="row">
         <div class="sliderbox">
           <div class="sliderlabel">Boost: <strong id="boostValueLabel">100</strong></div>
-          <input id="boostValue" type="range" min="100" max="400" step="5" value="100" />
+          <input id="boostValue" type="range" min="80" max="200" step="5" value="100" />
         </div>
         <button id="boostBtn">SET BOOST</button>
       </div>
@@ -834,12 +839,14 @@
         bridgeConnectUntilMs = 0;
         cancelConnectRetry();
         clearConnectionIdentity();
+        clearScanCache();
       } else if (upper === 'BT OFF' || upper === 'MODE OFF') {
         connectSuppressedUntilMs = Date.now() + 5000;
         connectAttemptActive = false;
         bridgeConnectUntilMs = 0;
         cancelConnectRetry();
         clearConnectionIdentity();
+        clearScanCache();
       } else if (upper === 'DELPAIRED ALL' || upper === 'HARDRESET') {
         connectSuppressedUntilMs = Date.now() + 5000;
         connectAttemptActive = false;
@@ -1475,15 +1482,15 @@
         let v = parseInt(document.getElementById('volValue').value, 10);
         if (Number.isNaN(v)) return;
         if (v < 0) v = 0;
-        if (v > 100) v = 100;
+        if (v > 85) v = 85;
         sendBtCmd('VOL ' + v);
       });
 
       document.getElementById('boostBtn').addEventListener('click', () => {
         let v = parseInt(document.getElementById('boostValue').value, 10);
         if (Number.isNaN(v)) return;
-        if (v < 100) v = 100;
-        if (v > 400) v = 400;
+        if (v < 80) v = 80;
+        if (v > 200) v = 200;
         sendBtCmd('BOOST ' + v);
       });
 

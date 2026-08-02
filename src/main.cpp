@@ -12,6 +12,7 @@
 // #include "core/mqtt.h"
 #include "driver/rtc_io.h"
 #include "core/serial_littlefs.h"
+#include "plugins/bt_popup/bt_popup.h"
 
 #include "core/optionschecker.h"
 #include "core/timekeeper.h"
@@ -198,6 +199,7 @@ void setup() {
 #endif
     if (REAL_LEDBUILTIN != 255) pinMode(REAL_LEDBUILTIN, OUTPUT);
     if (radio_on_setup) radio_on_setup();
+    btPopupInit();
     pm.init();     // pluginsManager
     pm.on_setup(); // pluginsManager
     config.init();
@@ -248,6 +250,7 @@ void loop() {
     if (serviceMaintenanceMode()) return;
 
     timekeeper.loop1();
+    btPopupLoop();
     if (network.status == CONNECTED || network.status == SDREADY) {
         player.loop();
 #if USE_OTA
