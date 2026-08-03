@@ -39,10 +39,21 @@ Schemat zasilania ESP32-S3 i WROOM (filtrowanie, kondensatory odsprzęgające):
 
 --------------------------------------------
 
+## Najwazniejsze zmiany BT
+
+- Inteligentny reconnect tylko do ostatniego poprawnego urzadzenia.
+    Radio po utracie linku wraca do ostatniego dzialajacego glosnika bez losowych prob laczenia.
+- Lepsze skanowanie i lista urzadzen.
+    Lista jest sortowana po RSSI, ukrywa smieciowe wpisy i przyspiesza wybor sluchawek lub glosnika.
+- Bezpieczny CONNECT flow (anty-zawieszka).
+    Gdy jest `CONNECTED`, ale przez kilka sekund nie ma `AUDIO STARTED`, firmware robi kontrolowany reconnect zamiast zostawic martwe polaczenie bez dzwieku.
+
+--------------------------------------------
+
 ## Aktualizacja BT panel (bt.html)
 
 - Ograniczono zakres glosnosci w panelu BT: `VOL 0..85`.
-- Ograniczono zakres podbicia: `BOOST 80..200`.
+- Ograniczono zakres podbicia: `BOOST 100..200`.
 - Wysylka komend z przyciskow `SET VOL` i `SET BOOST` ma dodatkowy clamp po stronie JS,
   wiec panel nie wysyla wartosci poza bezpieczny zakres.
 - `DISCONNECT` oraz `BT OFF` czysci liste `Detected Devices` w UI,
@@ -51,7 +62,7 @@ Schemat zasilania ESP32-S3 i WROOM (filtrowanie, kondensatory odsprzęgające):
 
 ### bt_popup (popup polaczenia BT)
 
-- Popup uruchamia sie po zdarzeniu `EVT A2DP_CONN CONNECTED`.
+- Popup uruchamia sie po zdarzeniu `EVT A2DP_CONN CONNECTED` i ponownie przy `EVT A2DP_AUDIO STARTED`.
 - Wyswietla nazwe urzadzenia i adres MAC pobrany z WROOM.
 - Popup jest tymczasowy: znika automatycznie po ok. 4 sekundach.
 - W trakcie aktywnego popupu nawigacja UI (zmiana ekranu/listy) zamyka popup,
