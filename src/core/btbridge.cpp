@@ -3,6 +3,7 @@
 #include "netserver.h"
 #include "options.h"
 #include "config.h"
+#include <Preferences.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "../plugins/bt_popup/bt_popup.h"
@@ -21,17 +22,63 @@ bool     g_seenConnectEvent = false;
 uint32_t g_restartGuardUntilMs = 0;
 bool     g_connectAttemptActive = false;
 bool     g_connectRecoveryDone = false;
+bool     g_waitingAudioNotified = false;
 uint32_t g_connectAttemptStartedMs = 0;
 uint32_t g_reconnectAtMs = 0;
+bool     g_reconnectFromLastGood = false;
 bool     g_internalRecoveryDisconnect = false;
 bool     g_internalRecoveryConnect = false;
+uint32_t g_autoReconnectBlockedUntilMs = 0;
 uint32_t g_lastStatusTxMs = 0;
+uint32_t g_lastRbProcessMs = 0;
 String   g_connectArg;
+String   g_lastGoodTarget;
+String   g_lastConnectedMac;
+String   g_lastConnectedName;
+String   g_lastPersistedTarget;
+Preferences g_btPrefs;
+bool     g_btPrefsReady = false;
 SemaphoreHandle_t g_btUartMutex = nullptr;
 char     g_rxBuf[1024];
 size_t   g_rxLen = 0;
 bool     g_rxOverflow = false;
 uint32_t g_lastStateQueryMs = 0;
+
+constexpr uint32_t kWaitingAudioNotifyMs = 3000;
+constexpr uint32_t kRecoverNoAudioMs = 15000;
+constexpr uint32_t kRbProcessGuardMs = 6000;
+
+static bool isMacToken(const String& value) {
+    if (value.length() != 17) return false;
+    for (int i = 0; i < 17; ++i) {
+        const char c = value[i];
+        if ((i % 3) == 2) {
+            if (c != ':') return false;
+            continue;
+        }
+        const bool isDigit = (c >= '0' && c <= '9');
+        const bool isHexUpper = (c >= 'A' && c <= 'F');
+        const bool isHexLower = (c >= 'a' && c <= 'f');
+        if (!isDigit && !isHexUpper && !isHexLower) return false;
+    }
+    return true;
+}
+
+static String normalizeMacToken(const String& value) {
+    String mac = value;
+    mac.trim();
+    mac.toUpperCase();
+    if (!isMacToken(mac)) return String();
+    return mac;
+}
+
+static void persistLastGoodTarget(const String& target) {
+    if (!g_btPrefsReady) return;
+    if (!target.length()) return;
+    if (g_lastPersistedTarget == target) return;
+    g_btPrefs.putString("last_mac", target);
+    g_lastPersistedTarget = target;
+}
 
 static bool lockBtUart(TickType_t timeoutTicks) {
     if (!g_btUartMutex) return true;
@@ -123,10 +170,15 @@ static void parseStateLine(const char* line) {
         g_seenConnectEvent = false;
         g_connectAttemptActive = false;
         g_connectRecoveryDone = false;
+        g_waitingAudioNotified = false;
         g_reconnectAtMs = 0;
+        g_reconnectFromLastGood = false;
         g_internalRecoveryDisconnect = false;
         g_internalRecoveryConnect = false;
         g_connectArg = "";
+        g_lastConnectedMac = "";
+        g_lastConnectedName = "";
+        g_lastRbProcessMs = 0;
         g_restartGuardUntilMs = millis() + 3000;
         return;
     }
@@ -136,12 +188,28 @@ static void parseStateLine(const char* line) {
         return;
     }
 
+    if (isState && strstr(line, "RB=") != nullptr && strstr(line, "[PROCESS]") != nullptr) {
+        // Extend PROCESS guard only when callback flow is active.
+        const char* cbPtr = strstr(line, " CB=");
+        const int cb = cbPtr ? atoi(cbPtr + 4) : 0;
+        if (cb > 0) {
+            g_lastRbProcessMs = millis();
+        }
+    }
+
     // Prioritize explicit events from the BT stack over unreliable CONN=0 state snapshots.
     if (strstr(line, "EVT A2DP_CONN DISCONNECTED") != nullptr || strstr(line, "EVT A2DP_CONN DISCONNECTING") != nullptr) {
         g_connected = false;
         btConnected = false;
         g_recentAudioStarted = false;
         g_lastAudioStartedMs = 0;
+        const bool reconnectBlocked =
+            g_autoReconnectBlockedUntilMs != 0 && static_cast<int32_t>(millis() - g_autoReconnectBlockedUntilMs) < 0;
+        if (!reconnectBlocked && g_btEnabled && !g_connectAttemptActive && !g_internalRecoveryDisconnect
+            && !g_internalRecoveryConnect && g_reconnectAtMs == 0 && g_lastGoodTarget.length() > 0) {
+            g_reconnectAtMs = millis() + 2200;
+            g_reconnectFromLastGood = true;
+        }
         return;
     }
 
@@ -184,6 +252,8 @@ static void parseStateLine(const char* line) {
         }
         if (name.length() == 0) name = "Bluetooth";
         btPopupShow(name, mac);
+        g_lastConnectedMac = normalizeMacToken(mac);
+        g_lastConnectedName = name;
 
         int v = config.store.volume;
         if (v < 0) v = 0;
@@ -200,9 +270,31 @@ static void parseStateLine(const char* line) {
         g_connected = true;
         g_connectAttemptActive = false;
         g_connectRecoveryDone = false;
+        g_waitingAudioNotified = false;
         g_reconnectAtMs = 0;
         g_internalRecoveryDisconnect = false;
         g_internalRecoveryConnect = false;
+
+        String popupMac = g_lastConnectedMac;
+        if (popupMac.length() == 0) {
+            popupMac = normalizeMacToken(g_connectArg);
+        }
+        String popupName = g_lastConnectedName;
+        popupName.trim();
+        if (popupName.length() == 0) popupName = "Bluetooth";
+        btPopupShow(popupName, popupMac);
+
+        if (g_lastConnectedMac.length() > 0) {
+            g_lastGoodTarget = g_lastConnectedMac;
+        } else {
+            const String connectMac = normalizeMacToken(g_connectArg);
+            if (connectMac.length() > 0) {
+                g_lastGoodTarget = connectMac;
+            }
+        }
+        if (g_lastGoodTarget.length() > 0) {
+            persistLastGoodTarget(g_lastGoodTarget);
+        }
     }
 
     if (strstr(line, "EVT A2DP_AUDIO STOPPED") != nullptr) {
@@ -220,10 +312,16 @@ static void parseStateLine(const char* line) {
             g_lastAudioStartedMs = 0;
             g_connectAttemptActive = false;
             g_connectRecoveryDone = false;
+            g_waitingAudioNotified = false;
             g_reconnectAtMs = 0;
+            g_reconnectFromLastGood = false;
             g_internalRecoveryDisconnect = false;
             g_internalRecoveryConnect = false;
+            g_autoReconnectBlockedUntilMs = 0;
             g_connectArg = "";
+            g_lastConnectedMac = "";
+            g_lastConnectedName = "";
+            g_lastRbProcessMs = 0;
             return;
         }
     }
@@ -275,7 +373,22 @@ void BtBridge::begin() {
     g_lastAudioStartedMs = 0;
     g_seenConnectEvent = false;
     g_restartGuardUntilMs = 0;
+    g_waitingAudioNotified = false;
     g_startupVolApplied = false;
+    g_reconnectFromLastGood = false;
+    g_autoReconnectBlockedUntilMs = 0;
+    if (!g_btPrefsReady) {
+        g_btPrefsReady = g_btPrefs.begin("btbridge", false);
+    }
+    g_lastGoodTarget = "";
+    g_lastPersistedTarget = "";
+    if (g_btPrefsReady) {
+        g_lastGoodTarget = normalizeMacToken(g_btPrefs.getString("last_mac", ""));
+        g_lastPersistedTarget = g_lastGoodTarget;
+    }
+    g_lastConnectedMac = "";
+    g_lastConnectedName = "";
+    g_lastRbProcessMs = 0;
     g_ready = true;
     wsLine("STATE BTBRIDGE=READY");
 #endif
@@ -344,23 +457,37 @@ bool BtBridge::sendLine(const char* line, uint8_t clientId) {
             g_connectRecoveryDone = false;
         }
         g_connectAttemptStartedMs = millis();
+        g_waitingAudioNotified = false;
         g_reconnectAtMs = 0;
+        g_reconnectFromLastGood = false;
         g_internalRecoveryDisconnect = false;
         g_connectArg = cmd.substring(8);
         g_connectArg.trim();
+        g_lastConnectedMac = "";
+        g_lastConnectedName = "";
+        g_lastRbProcessMs = 0;
         g_internalRecoveryConnect = false;
+        g_autoReconnectBlockedUntilMs = 0;
     } else if (cmdUpper == "DISCONNECT" || cmdUpper == "BT OFF" || cmdUpper == "MODE OFF") {
         g_connectAttemptActive = false;
-        g_connectRecoveryDone = false;
-        if (g_internalRecoveryDisconnect && cmdUpper == "DISCONNECT") {
-            // Internal recovery flow keeps reconnect schedule and target.
+        g_waitingAudioNotified = false;
+
+        const bool internalRecoveryDisconnect = (g_internalRecoveryDisconnect && cmdUpper == "DISCONNECT");
+        if (internalRecoveryDisconnect) {
+            // Internal recovery flow keeps reconnect schedule/target and one-shot recovery guard.
             g_internalRecoveryDisconnect = false;
         } else {
+            g_connectRecoveryDone = false;
+            g_autoReconnectBlockedUntilMs = millis() + 9000;
             g_reconnectAtMs = 0;
+            g_reconnectFromLastGood = false;
             g_connectArg = "";
             g_internalRecoveryDisconnect = false;
             g_internalRecoveryConnect = false;
+            g_lastRbProcessMs = 0;
         }
+    } else if (cmdUpper == "SCAN") {
+        g_autoReconnectBlockedUntilMs = millis() + 12000;
     }
 
     // BT queue timeout: 200ms (from bt_source pattern)
@@ -444,11 +571,49 @@ void BtBridge::loop() {
     }
 
     // CONNECT can be established before headset audio path becomes ready.
-    // Do not disconnect automatically; keep waiting for EVT A2DP_AUDIO STARTED.
+    // If no audio starts within a grace window, run one controlled reconnect.
     if (g_connectAttemptActive && g_connected && !g_recentAudioStarted && !g_connectRecoveryDone
-        && static_cast<int32_t>(millis() - g_connectAttemptStartedMs) >= 2000) {
+        && static_cast<int32_t>(millis() - g_connectAttemptStartedMs) >= static_cast<int32_t>(kWaitingAudioNotifyMs)) {
+        if (!g_waitingAudioNotified) {
+            wsLine("STATE BTBRIDGE=WAITING_AUDIO");
+            g_waitingAudioNotified = true;
+        }
+    }
+
+    const bool rbProcessSeenRecently =
+        g_lastRbProcessMs != 0 && static_cast<int32_t>(millis() - g_lastRbProcessMs) < static_cast<int32_t>(kRbProcessGuardMs);
+    if (g_connectAttemptActive && g_connected && !g_recentAudioStarted && !g_connectRecoveryDone
+        && !rbProcessSeenRecently
+        && static_cast<int32_t>(millis() - g_connectAttemptStartedMs) >= static_cast<int32_t>(kRecoverNoAudioMs)) {
         g_connectRecoveryDone = true;
-        wsLine("STATE BTBRIDGE=WAITING_AUDIO");
+        if (g_connectArg.length() > 0) {
+            wsLine("STATE BTBRIDGE=RECOVER CONNECT_NO_AUDIO");
+            g_internalRecoveryDisconnect = true;
+            sendLine("DISCONNECT");
+            g_reconnectAtMs = millis() + 1300;
+            g_reconnectFromLastGood = false;
+        } else {
+            wsLine("STATE BTBRIDGE=RECOVER NO_TARGET");
+        }
+    }
+
+    if (g_reconnectAtMs != 0 && static_cast<int32_t>(millis() - g_reconnectAtMs) >= 0) {
+        const bool reconnectBlocked =
+            g_autoReconnectBlockedUntilMs != 0 && static_cast<int32_t>(millis() - g_autoReconnectBlockedUntilMs) < 0;
+        if (!reconnectBlocked && g_btEnabled && !g_connectAttemptActive) {
+            String target = g_reconnectFromLastGood ? g_lastGoodTarget : g_connectArg;
+            target.trim();
+            if (target.length() > 0) {
+                String cmd = String("CONNECT ") + target;
+                g_internalRecoveryConnect = true;
+                if (g_reconnectFromLastGood) {
+                    wsLine("STATE BTBRIDGE=RECONNECT LAST_OK");
+                }
+                sendLine(cmd.c_str());
+            }
+        }
+        g_reconnectAtMs = 0;
+        g_reconnectFromLastGood = false;
     }
 #endif
 }

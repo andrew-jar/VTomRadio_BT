@@ -303,6 +303,21 @@
       border-bottom: 1px solid var(--bt-line);
     }
 
+    .devices-tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--bt-muted);
+    }
+
+    .devices-tools label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     .devices-list {
       max-height: 240px;
       overflow: auto;
@@ -358,6 +373,7 @@
       letter-spacing: .02em;
       white-space: nowrap;
     }
+
 
     .ok { color: var(--bt-ok); }
     .warn { color: var(--bt-warn); }
@@ -473,7 +489,7 @@
       <div class="row">
         <div class="sliderbox">
           <div class="sliderlabel">Boost: <strong id="boostValueLabel">100</strong></div>
-          <input id="boostValue" type="range" min="80" max="200" step="5" value="100" />
+          <input id="boostValue" type="range" min="100" max="200" step="5" value="100" />
         </div>
         <button id="boostBtn">SET BOOST</button>
       </div>
@@ -489,12 +505,17 @@
       <div class="devices">
         <div class="devices-head">
           <strong>Detected Devices</strong>
-          <button id="connectSelectedBtn" class="dev-btn" type="button">CONNECT SELECTED</button>
+          <div class="devices-tools">
+            <label title="Sortuje liste od najsilniejszego sygnalu (RSSI blizej 0) do najslabszego."><input id="sortByRssi" type="checkbox" checked /> Sort by RSSI</label>
+            <label title="Ukrywa podejrzane lub tymczasowe adresy BLE/random bez pewnej nazwy."><input id="hideJunk" type="checkbox" checked /> Hide junk</label>
+            <button id="connectSelectedBtn" class="dev-btn" type="button">CONNECT SELECTED</button>
+          </div>
         </div>
         <div id="devicesList" class="devices-list">
           <div class="dev-empty">Run SCAN to discover devices.</div>
         </div>
       </div>
+
     </div>
 
     <div class="panel">
@@ -567,6 +588,8 @@
     const RECOVERY_CONNECT_GRACE_MS = 15000;
     const BRIDGE_CONNECT_GRACE_MS = 12000;
     const SCAN_AUTO_REJECT_GRACE_MS = 12000;
+    const STATUS_SUPPRESS_DURING_CONNECT_MS = 5000;
+    const DEVICES_UI_STORAGE_KEY = 'bt-devices-ui-v1';
 
     const els = {
       wsState: document.getElementById('wsState'),
@@ -602,6 +625,34 @@
     function nowTime() {
       const d = new Date();
       return d.toLocaleTimeString();
+    }
+
+    function getSelectedDevice() {
+      return devices.find((it) => it.id === selectedDeviceId) || null;
+    }
+
+    function loadUiPrefs() {
+      try {
+        const raw = localStorage.getItem(DEVICES_UI_STORAGE_KEY);
+        if (!raw) return;
+        const cfg = JSON.parse(raw);
+        const sortEl = document.getElementById('sortByRssi');
+        const hideEl = document.getElementById('hideJunk');
+        if (sortEl && typeof cfg.sortByRssi === 'boolean') sortEl.checked = cfg.sortByRssi;
+        if (hideEl && typeof cfg.hideJunk === 'boolean') hideEl.checked = cfg.hideJunk;
+      } catch (_) {}
+    }
+
+    function saveUiPrefs() {
+      const sortEl = document.getElementById('sortByRssi');
+      const hideEl = document.getElementById('hideJunk');
+      const cfg = {
+        sortByRssi: !!(sortEl && sortEl.checked),
+        hideJunk: !!(hideEl && hideEl.checked)
+      };
+      try {
+        localStorage.setItem(DEVICES_UI_STORAGE_KEY, JSON.stringify(cfg));
+      } catch (_) {}
     }
 
     function goHome() {
@@ -880,6 +931,9 @@
 
     function requestStatus(forceNow = false) {
       if (ws && ws.readyState === 1) {
+        if (!forceNow && connectAttemptActive && (Date.now() - connectAttemptStartedMs) < STATUS_SUPPRESS_DURING_CONNECT_MS) {
+          return;
+        }
         const now = Date.now();
         if (!forceNow && (now - lastStatusReqMs) < STATUS_MIN_GAP_MS) {
           if (!statusReqPending) {
@@ -1085,6 +1139,14 @@
       if (line.includes('STATE BTBRIDGE=RECOVER CONNECT_NO_AUDIO')) {
         // Backend initiated a controlled reconnect; don't treat upcoming CONNECTED as unsolicited.
         recoveryConnectGraceUntilMs = Date.now() + RECOVERY_CONNECT_GRACE_MS;
+      }
+
+      if (line.includes('STATE BTBRIDGE=WAITING_AUDIO')) {
+        addLog('Connected, waiting for audio path...', 'warn');
+      }
+
+      if (line.includes('STATE BTBRIDGE=RECONNECT LAST_OK')) {
+        addLog('Auto-reconnect: trying last known good device', 'warn');
       }
 
       if (/^READY\s+.*BT-TX/i.test(line)) {
@@ -1308,7 +1370,6 @@
         const idx = devices.findIndex((d) => d.id === item.id || d.mac === item.mac);
         if (idx >= 0) devices[idx] = item;
         else devices.push(item);
-        devices.sort((a, b) => a.id - b.id);
 
         const hint = connectabilityHint(item.mac);
         if (hint && !macHintWarned[item.mac]) {
@@ -1361,12 +1422,45 @@
       const box = document.getElementById('devicesList');
       if (!box) return;
 
-      if (!devices.length) {
+      const sortByRssiEl = document.getElementById('sortByRssi');
+      const hideJunkEl = document.getElementById('hideJunk');
+      const sortByRssi = !!(sortByRssiEl && sortByRssiEl.checked);
+      const hideJunk = !!(hideJunkEl && hideJunkEl.checked);
+
+      const isLikelyJunk = (d) => {
+        if (!d || !isValidMac(d.mac)) return true;
+        const hasName = !!String(d.name || '').trim();
+        const isWeak = d.rssi <= -85;
+        // Random/non-unicast MAC is only a hint. Keep named devices visible.
+        if (!hasName && isWeak) return true;
+        if (!hasName && !isUnicastMac(d.mac) && isWeak) return true;
+        return false;
+      };
+
+      let view = devices.slice();
+      if (hideJunk) {
+        view = view.filter((d) => !isLikelyJunk(d));
+      }
+
+      view.sort((a, b) => {
+        if (sortByRssi) {
+          if (b.rssi !== a.rssi) return b.rssi - a.rssi;
+          return a.id - b.id;
+        }
+        return a.id - b.id;
+      });
+
+      const selectedVisible = view.some((d) => d.id === selectedDeviceId);
+      if (!selectedVisible && view.length) {
+        selectedDeviceId = view[0].id;
+      }
+
+      if (!view.length) {
         box.innerHTML = '<div class="dev-empty">No devices yet. Press SCAN and wait for DEV lines.</div>';
         return;
       }
 
-      box.innerHTML = devices.map((d) => {
+      box.innerHTML = view.map((d) => {
         const safeName = (d.name || 'Unknown').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const active = d.id === selectedDeviceId ? ' active' : '';
         const issue = connectabilityIssue(d.mac);
@@ -1460,6 +1554,22 @@
         });
       }
 
+      const sortByRssi = document.getElementById('sortByRssi');
+      if (sortByRssi) {
+        sortByRssi.addEventListener('change', () => {
+          saveUiPrefs();
+          renderDevices();
+        });
+      }
+
+      const hideJunk = document.getElementById('hideJunk');
+      if (hideJunk) {
+        hideJunk.addEventListener('change', () => {
+          saveUiPrefs();
+          renderDevices();
+        });
+      }
+
       const volInput = document.getElementById('volValue');
       const volLabel = document.getElementById('volValueLabel');
       if (volInput && volLabel) {
@@ -1489,7 +1599,7 @@
       document.getElementById('boostBtn').addEventListener('click', () => {
         let v = parseInt(document.getElementById('boostValue').value, 10);
         if (Number.isNaN(v)) return;
-        if (v < 80) v = 80;
+        if (v < 100) v = 100;
         if (v > 200) v = 200;
         sendBtCmd('BOOST ' + v);
       });
@@ -1568,6 +1678,7 @@
     }
 
     setupButtons();
+    loadUiPrefs();
     fetch('logo.svg')
       .then((r) => r.text())
       .then((svg) => {
