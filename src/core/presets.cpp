@@ -12,7 +12,7 @@
 #include "../displays/tools/language.h"
 #include "fonts.h"
 
-#if (DSP_WIDTH == 480) && (DSP_HEIGHT == 320)
+#if ((DSP_WIDTH == 480) && (DSP_HEIGHT == 320)) || ((DSP_WIDTH == 320) && (DSP_HEIGHT == 240))
 
 static inline const char* uiText(const String& s, bool upper = false) {
     return s.c_str();
