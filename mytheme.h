@@ -34,6 +34,7 @@
 #define COLOR_VU_MAX            255,  14,  14
 #define COLOR_VU_MID            255, 255,   0
 #define COLOR_VU_MIN             44, 212,  32
+#define COLOR_VU_PEAK           255, 255, 255
 #define COLOR_VU_LRBOX          125, 125, 125
 #define COLOR_VU_LRTEXT         255, 255, 255
 
@@ -88,6 +89,7 @@
 #define COLOR_PRST_CARD              14,  21,  30  // Tlo pustej karty presetu
 #define COLOR_PRST_ACCENT             0,  32,  66  // Tlo karty z zapisana stacja (wypelniony slot)
 #define COLOR_PRST_FAV               41, 255,  76  // Podswietlenie aktywnego banku FAV (wybrany bank)
+#define COLOR_PRST_FAV_INACTIVE     150, 150, 150  // Tekst nieaktywnego banku FAV
 #define COLOR_PRST_TITLE_1          255, 255, 255  // Glowny tekst w PRESETS (topbar, pierwsza linia)
 #define COLOR_PRST_TITLE_2          153, 153, 153  // Drugorzedny tekst w PRESETS (druga linia)
 #define COLOR_PRST_TITLE_3          150, 150, 150  // Tekst nieaktywnego banku FAV

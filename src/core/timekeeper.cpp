@@ -324,12 +324,24 @@ void TimeKeeper::_upClock() {
         network_set_timeinfo(currentTime);
     }
 #else
-    tm currentTime{};
-    network_get_timeinfo_snapshot(&currentTime);
-    if (currentTime.tm_year > 100 || network.status == SDREADY) {
-        currentTime.tm_sec++;
-        mktime(&currentTime);
-        network_set_timeinfo(currentTime);
+    bool   updatedFromSystemClock = false;
+    time_t now = time(nullptr);
+    if (now > 100000) {
+        tm currentTime{};
+        localtime_r(&now, &currentTime);
+        if (currentTime.tm_year > 100) {
+            network_set_timeinfo(currentTime);
+            updatedFromSystemClock = true;
+        }
+    }
+    if (!updatedFromSystemClock) {
+        tm currentTime{};
+        network_get_timeinfo_snapshot(&currentTime);
+        if (currentTime.tm_year > 100 || network.status == SDREADY) {
+            currentTime.tm_sec++;
+            mktime(&currentTime);
+            network_set_timeinfo(currentTime);
+        }
     }
 #endif
     if (display.ready()) { display.putRequest(CLOCK); }

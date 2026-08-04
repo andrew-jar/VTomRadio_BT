@@ -213,7 +213,7 @@ void MyNetwork::setWifiParams() {
         WiFi.onEvent(WiFiLostConnection, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
         wifiEventsRegistered = true;
     }
-    // config.setTimeConf(); //??
+    config.setTimeConf();
     if (strlen(config.store.mdnsname) > 0) {
         MDNS.end();
         if (MDNS.begin(config.store.mdnsname)) {

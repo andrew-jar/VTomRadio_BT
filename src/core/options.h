@@ -2,10 +2,10 @@
 #define options_h
 #pragma once
 
-#define FW_VERSION "0.1.12"
+#define FW_VERSION "0.1.13"
 
 #ifndef THEME_CSV_VERSION
-#    define THEME_CSV_VERSION "0.0.1"
+#    define THEME_CSV_VERSION "0.0.3"
 #endif
 
 /*******************************************************
@@ -575,6 +575,9 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #ifndef COLOR_PRST_FAV
   #define COLOR_PRST_FAV          255, 150,   0
 #endif
+#ifndef COLOR_PRST_FAV_INACTIVE
+  #define COLOR_PRST_FAV_INACTIVE 150, 150, 150
+#endif
 #ifndef COLOR_PRST_TITLE_1
   #define COLOR_PRST_TITLE_1      255, 255, 255
 #endif
@@ -596,6 +599,9 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
 #endif
 #ifndef COLOR_VU_MIN
   #define COLOR_VU_MIN            123, 125, 123
+#endif
+#ifndef COLOR_VU_PEAK
+  #define COLOR_VU_PEAK           255, 255, 255
 #endif
 #ifndef COLOR_VU_LRBOX
   #define COLOR_VU_LRBOX          125, 125, 125

@@ -2332,11 +2332,12 @@ void handleNotFound(AsyncWebServerRequest *request) {
     snprintf(
       netserver.nsBuf, sizeof(netserver.nsBuf),
       "var fwVersion='%s';\n"
+      "var themeCsvVersion='%s';\n"
       "var formAction='%s';\n"
       "var playMode='%s';\n"
       "var isStaConnected=%d;\n"
       "var dlnaSupported=%d;\n",
-      FW_VERSION, (network.status == CONNECTED && !config.emptyFS) ? "webboard" : "", (network.status == CONNECTED) ? "player" : "ap",
+      FW_VERSION, THEME_CSV_VERSION, (network.status == CONNECTED && !config.emptyFS) ? "webboard" : "", (network.status == CONNECTED) ? "player" : "ap",
       (network.status == CONNECTED) ? 1 : 0,
 #ifdef USE_DLNA
       1

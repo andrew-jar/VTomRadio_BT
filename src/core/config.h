@@ -75,6 +75,7 @@ struct theme_t {
     uint16_t vumax;
     uint16_t vumid;
     uint16_t vumin;
+    uint16_t vupeak;
     uint16_t vulrbox;
     uint16_t vulrtext;
     /*----- CLOCK, DATE -----*/
@@ -110,6 +111,7 @@ struct theme_t {
     uint16_t prst_button;
     uint16_t prst_accent;
     uint16_t prst_fav;
+    uint16_t prst_fav_inactive;
     uint16_t prst_title1;
     uint16_t prst_title2;
     uint16_t prst_title3;
