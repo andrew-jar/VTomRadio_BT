@@ -1328,7 +1328,7 @@ void Config::resetSystem(const char* val, uint8_t clientId) {
     if (strcmp(val, "timezone") == 0) {
         saveValue(&store.tzHour, (int8_t)3, false);
         saveValue(&store.tzMin, (int8_t)0, false);
-        saveValue(store.sntp1, "hu.pool.ntp.org", 35, false);
+        saveValue(store.sntp1, "0.pl.pool.ntp.org", 35, false);
         saveValue(store.sntp2, "time.google.com", 35);
         saveValue(&store.timeSyncInterval, (uint16_t)60);
         saveValue(&store.timeSyncIntervalRTC, (uint16_t)24);
@@ -1399,7 +1399,7 @@ void Config::setDefaults() {
     store.dspon = true;
     store.brightness = 100;
     store.contrast = 55;
-    strlcpy(store.sntp1, "hu.pool.ntp.org", 35);
+    strlcpy(store.sntp1, "0.pl.pool.ntp.org", 35);
     strlcpy(store.sntp2, "time.google.com", 35);
     store.showweather = false;
     strlcpy(store.weatherlat, "46.3873", 10);

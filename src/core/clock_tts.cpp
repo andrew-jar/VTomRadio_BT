@@ -5,6 +5,7 @@
 #include "config.h"
 #include "network.h"
 #include "player.h"
+#include "timekeeper.h"
 #include <Arduino.h>
 #include <time.h>
 
@@ -249,6 +250,9 @@ void clock_tts_loop() {
   }
 
   if (tm_struct->tm_year + 1900 < 2020) {
+    return;
+  }
+  if (!timekeeper.timeEverSynced) {
     return;
   }
   if (tm_struct->tm_min % clock_tts_interval == 0 && tm_struct->tm_min != clock_lastMinute && tm_struct->tm_sec < 2 && !clock_ttsActive) {
