@@ -11,8 +11,6 @@
 #    include "../pluginsManager/pluginsManager.h"
 #    include "../plugins/backlight/backlight.h"
 
-#    define PRESETS_UI_SUPPORTED (((DSP_WIDTH == 480) && (DSP_HEIGHT == 320)) || ((DSP_WIDTH == 320) && (DSP_HEIGHT == 240)))
-
 #    ifndef TS_STEPS_X
 #        ifdef TS_STEPS
 #            define TS_STEPS_X TS_STEPS
@@ -56,7 +54,7 @@ void TouchScreen::loop() {
     static uint32_t      touchLongPress;
     static tsDirection_e direct;
     static uint16_t      touchVol, touchStation;
-#    if PRESETS_UI_SUPPORTED
+#    if HAS_PRESETS_UI
     static uint32_t presetsLastActivity = 0;
     static int      presetActionDone = 0; // 0=play, 1=save, 2=del
     static int      presetHoldSlot = -1;
@@ -89,7 +87,7 @@ void TouchScreen::loop() {
     bool newTouch = (stTouched && !lastStTouched);
     bool endTouch = (!stTouched && lastStTouched);
 
-#    if PRESETS_UI_SUPPORTED
+#    if HAS_PRESETS_UI
     // Auto-exit presets screen after 15s
     if (display.mode() == PRESETS) {
         if (presets_toastExpired()) { return; }
@@ -116,7 +114,7 @@ void TouchScreen::loop() {
             direct = TDS_REQUEST;
             touchLongPress = millis();
 
-#    if PRESETS_UI_SUPPORTED
+#    if HAS_PRESETS_UI
             if (display.mode() == PRESETS && !presets_keyboardActive()) {
                 presetHoldSlot = presets_hitTest(touchX, touchY);
                 presetActionDone = 0;
@@ -186,7 +184,7 @@ void TouchScreen::loop() {
             }
         }
 /********************************** PRESETS HOLD (real-time) ************************************/
-#    if PRESETS_UI_SUPPORTED
+#    if HAS_PRESETS_UI
         if (display.mode() == PRESETS && !presets_keyboardActive()) {
             uint32_t held = millis() - touchLongPress;
 
@@ -220,7 +218,7 @@ void TouchScreen::loop() {
             if (direct == TDS_REQUEST) {
                 uint32_t pressTicks = millis() - touchLongPress;
 
-#    if PRESETS_UI_SUPPORTED
+#    if HAS_PRESETS_UI
                 presets_clearPressed();
                 presets_setPressedSlot(-1);
 
@@ -279,7 +277,7 @@ void TouchScreen::loop() {
                     }
                 }
             }
-#    if PRESETS_UI_SUPPORTED
+#    if HAS_PRESETS_UI
         finish_touch:
             presetHoldSlot = -1;
             presetActionDone = 0;
