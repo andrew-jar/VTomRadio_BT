@@ -79,6 +79,14 @@ STORE YOUR SETTINGS IN THE *** myoptions.h *** FILE.
   #define DSP_MODEL  DSP_DUMMY
 #endif
 
+#ifndef HAS_PRESETS_UI
+#  if (DSP_MODEL == DSP_ILI9488) || (DSP_MODEL == DSP_ILI9486) || (DSP_MODEL == DSP_ST7796) || (DSP_MODEL == DSP_ILI9341) || (DSP_MODEL == DSP_ST7789)
+#    define HAS_PRESETS_UI 1
+#  else
+#    define HAS_PRESETS_UI 0
+#  endif
+#endif
+
 #ifndef LED_INVERT
   #define LED_INVERT   false      // invert onboard LED?
 #endif
