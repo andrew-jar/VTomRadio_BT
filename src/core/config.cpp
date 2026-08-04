@@ -563,6 +563,7 @@ void Config::_setDefaultTheme() {
     theme.vumax = color565(COLOR_VU_MAX);
     theme.vumid = color565(COLOR_VU_MID);
     theme.vumin = color565(COLOR_VU_MIN);
+    theme.vupeak = color565(COLOR_VU_PEAK);
     theme.vulrbox = color565(COLOR_VU_LRBOX);
     theme.vulrtext = color565(COLOR_VU_LRTEXT);
     /*----- PLAYLIST WIDGET-----*/
@@ -579,6 +580,7 @@ void Config::_setDefaultTheme() {
     theme.prst_card = color565(COLOR_PRST_CARD);
     theme.prst_accent = color565(COLOR_PRST_ACCENT);
     theme.prst_fav = color565(COLOR_PRST_FAV);
+    theme.prst_fav_inactive = color565(COLOR_PRST_FAV_INACTIVE);
     theme.prst_title1 = color565(COLOR_PRST_TITLE_1);
     theme.prst_title2 = color565(COLOR_PRST_TITLE_2);
     theme.prst_title3 = color565(COLOR_PRST_TITLE_3);
@@ -641,6 +643,8 @@ bool Config::setThemeColorByName(const char* name, uint8_t r, uint8_t g, uint8_t
     SET_THEME_COLOR("vu_mid", vumid);
     SET_THEME_COLOR("vumin", vumin);
     SET_THEME_COLOR("vu_min", vumin);
+    SET_THEME_COLOR("vupeak", vupeak);
+    SET_THEME_COLOR("vu_peak", vupeak);
     SET_THEME_COLOR("vulrbox", vulrbox);
     SET_THEME_COLOR("vu_lrbox", vulrbox);
     SET_THEME_COLOR("vulrtext", vulrtext);
@@ -682,6 +686,7 @@ bool Config::setThemeColorByName(const char* name, uint8_t r, uint8_t g, uint8_t
     SET_THEME_COLOR("prst_card", prst_card);
     SET_THEME_COLOR("prst_accent", prst_accent);
     SET_THEME_COLOR("prst_fav", prst_fav);
+    SET_THEME_COLOR("prst_fav_inactive", prst_fav_inactive);
     SET_THEME_COLOR("prst_title1", prst_title1);
     SET_THEME_COLOR("prst_title2", prst_title2);
     SET_THEME_COLOR("prst_title3", prst_title3);
@@ -752,6 +757,8 @@ bool Config::getThemeColorByName(const char* name, uint16_t& color) const {
     GET_THEME_COLOR("vu_mid", vumid);
     GET_THEME_COLOR("vumin", vumin);
     GET_THEME_COLOR("vu_min", vumin);
+    GET_THEME_COLOR("vupeak", vupeak);
+    GET_THEME_COLOR("vu_peak", vupeak);
     GET_THEME_COLOR("vulrbox", vulrbox);
     GET_THEME_COLOR("vu_lrbox", vulrbox);
     GET_THEME_COLOR("vulrtext", vulrtext);
@@ -793,6 +800,7 @@ bool Config::getThemeColorByName(const char* name, uint16_t& color) const {
     GET_THEME_COLOR("prst_card", prst_card);
     GET_THEME_COLOR("prst_accent", prst_accent);
     GET_THEME_COLOR("prst_fav", prst_fav);
+    GET_THEME_COLOR("prst_fav_inactive", prst_fav_inactive);
     GET_THEME_COLOR("prst_title1", prst_title1);
     GET_THEME_COLOR("prst_title2", prst_title2);
     GET_THEME_COLOR("prst_title3", prst_title3);
@@ -921,6 +929,7 @@ bool Config::saveThemeToFile() {
     writeColor("vumax", theme.vumax);
     writeColor("vumid", theme.vumid);
     writeColor("vumin", theme.vumin);
+    writeColor("vupeak", theme.vupeak);
     writeColor("vulrbox", theme.vulrbox);
     writeColor("vulrtext", theme.vulrtext);
     writeColor("vol_bg", theme.vol_bg);
@@ -959,6 +968,7 @@ bool Config::saveThemeToFile() {
     writeColor("prst_card", theme.prst_card);
     writeColor("prst_accent", theme.prst_accent);
     writeColor("prst_fav", theme.prst_fav);
+    writeColor("prst_fav_inactive", theme.prst_fav_inactive);
     writeColor("prst_title1", theme.prst_title1);
     writeColor("prst_title2", theme.prst_title2);
     writeColor("prst_title3", theme.prst_title3);
@@ -1005,6 +1015,7 @@ String Config::themeToJson() const {
     appendColor("vumax", theme.vumax);
     appendColor("vumid", theme.vumid);
     appendColor("vumin", theme.vumin);
+    appendColor("vupeak", theme.vupeak);
     appendColor("vulrbox", theme.vulrbox);
     appendColor("vulrtext", theme.vulrtext);
     appendColor("vol_bg", theme.vol_bg);
@@ -1043,6 +1054,7 @@ String Config::themeToJson() const {
     appendColor("prst_card", theme.prst_card);
     appendColor("prst_accent", theme.prst_accent);
     appendColor("prst_fav", theme.prst_fav);
+    appendColor("prst_fav_inactive", theme.prst_fav_inactive);
     appendColor("prst_title1", theme.prst_title1);
     appendColor("prst_title2", theme.prst_title2);
     appendColor("prst_title3", theme.prst_title3);

@@ -1,11 +1,13 @@
 
 VTomRadio_BT (bluetooth) - Mod. Andrzej Jaroszuk.
 
-Moja modyfikacja oparta na projekcie VTomRadio kolegi VaraiTamas.
+Moja modyfikacja oparta na projekcie [VTomRadio](https://github.com/VaraiTamas/VTomRadio) kolegi VaraiTamas.
+
 ---------------------------------------------------------------------
 
 ## Credits
 
+- Projekt bazowy: [VaraiTamas - VTomRadio](https://github.com/VaraiTamas/VTomRadio)
 - ADD st7789 : [MaSo-CZ Marek Zettik](https://github.com/MaSo-CZ)
 
 ---------------------------------------------------------------------

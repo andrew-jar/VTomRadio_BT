@@ -285,28 +285,24 @@ void VuWidget::_draw() {
         }
 
         if (vuPeakEnabled) {
-            const uint16_t peak_color = 0xFFFF;
-            const uint16_t peak_bright = 0xF7FF;
-            const int      peak_width = 1;
+            const uint16_t peak_color = config.theme.vupeak;
+            const int      peak_width = 3;
 
-            int pxL = (center - MID_HALF) - peakL - peak_width;
+            int pxL = (center - MID_HALF) - peakL - 1;
             if (pxL < 0) pxL = 0;
+            int drawWidthL = min<int>(_spr->width() - pxL, peak_width);
+            if (drawWidthL > 0) {
+                _spr->fillRect(pxL, 0, drawWidthL, _vuConf.height, peak_color);
+            }
 
-            int pxL_shadow = (pxL - 1 < 0) ? 0 : pxL - 1;
-            int pxL_w = (pxL_shadow + peak_width + 2 <= _spr->width()) ? (peak_width + 2) : (_spr->width() - pxL_shadow);
-
-            if (pxL_w > 0) { _spr->fillRect(pxL_shadow, 0, pxL_w, _vuConf.height, peak_bright); }
-            _spr->fillRect(pxL, 0, peak_width, _vuConf.height, peak_color);
-
-            int pxR = (center + MID_HALF) + peakR;
+            int pxR = (center + MID_HALF) + peakR - 1;
             int maxX = _spr->width() - peak_width;
             if (pxR > maxX) pxR = maxX;
-
-            int pxR_shadow = (pxR - 1 < 0) ? 0 : pxR - 1;
-            int pxR_w = (pxR_shadow + peak_width + 2 <= _spr->width()) ? (peak_width + 2) : (_spr->width() - pxR_shadow);
-
-            if (pxR_w > 0) { _spr->fillRect(pxR_shadow, 0, pxR_w, _vuConf.height, peak_bright); }
-            _spr->fillRect(pxR, 0, peak_width, _vuConf.height, peak_color);
+            if (pxR < 0) pxR = 0;
+            int drawWidthR = min<int>(_spr->width() - pxR, peak_width);
+            if (drawWidthR > 0) {
+                _spr->fillRect(pxR, 0, drawWidthR, _vuConf.height, peak_color);
+            }
         }
         _spr->pushSprite(_vuConf.left, _vuConf.top);
 #endif
@@ -375,25 +371,20 @@ void VuWidget::_draw() {
         }
 
         if (vuPeakEnabled) {
-#ifndef DSP_OLED
-            const uint16_t peak_color = 0xFFFF;
-            const uint16_t peak_bright = 0xF7FF;
-#else
-            const uint16_t peak_color = 0x000F;
-            const uint16_t peak_bright = BLACK;
-#endif
-            const int peak_width = 1;
+            const uint16_t peak_color = config.theme.vupeak;
+            const int      peak_width = 3;
 
             uint16_t drawPeakL = peakL;
             if (drawPeakL > _vuConf.width - 2) drawPeakL -= 2;
 
             if (drawPeakL > 1 && drawPeakL <= _vuConf.width) {
+                int peakStartL = drawPeakL - 1;
+                if (peakStartL < 0) peakStartL = 0;
+                int drawWidthL = min<int>(_vuConf.width - peakStartL, peak_width);
 #ifndef DSP_OLED
-                _spr->fillRect(drawPeakL - 1, 0, peak_width + 2, _vuConf.height, peak_bright);
-                _spr->fillRect(drawPeakL, 0, peak_width, _vuConf.height, peak_color);
+                _spr->fillRect(peakStartL, 0, drawWidthL, _vuConf.height, peak_color);
 #else
-                dsp.fillRect(drawPeakL - 1 + _vuConf.left, _vuConf.top, peak_width + 1, _vuConf.height, peak_bright);
-                dsp.fillRect(drawPeakL + _vuConf.left, _vuConf.top, peak_width, _vuConf.height, peak_color);
+                dsp.fillRect(peakStartL + _vuConf.left, _vuConf.top, drawWidthL, _vuConf.height, peak_color);
 #endif
             }
 
@@ -401,12 +392,13 @@ void VuWidget::_draw() {
             if (drawPeakR > _vuConf.width - 2) drawPeakR -= 2;
 
             if (drawPeakR > 1 && drawPeakR <= _vuConf.width) {
+                int peakStartR = drawPeakR - 1;
+                if (peakStartR < 0) peakStartR = 0;
+                int drawWidthR = min<int>(_vuConf.width - peakStartR, peak_width);
 #ifndef DSP_OLED
-                _spr->fillRect(drawPeakR - 1, _vuConf.height + _vuConf.space, peak_width + 2, _vuConf.height, peak_bright);
-                _spr->fillRect(drawPeakR, _vuConf.height + _vuConf.space, peak_width, _vuConf.height, peak_color);
+                _spr->fillRect(peakStartR, _vuConf.height + _vuConf.space, drawWidthR, _vuConf.height, peak_color);
 #else
-                dsp.fillRect(drawPeakR - 1 + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, peak_width + 1, _vuConf.height, peak_bright);
-                dsp.fillRect(drawPeakR + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, peak_width, _vuConf.height, peak_color);
+                dsp.fillRect(peakStartR + _vuConf.left, _vuConf.top + _vuConf.height + _vuConf.space, drawWidthR, _vuConf.height, peak_color);
 #endif
             }
         }
