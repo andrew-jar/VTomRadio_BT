@@ -556,7 +556,7 @@ void Display::_swichMode(displayMode_e newmode) {
     if (newmode == SDCHANGE) { _showDialog(LANG::const_waitForSD); }
     if (newmode == INFO || newmode == SETTINGS || newmode == TIMEZONE || newmode == WIFI) { _showDialog(LANG::const_DlgNextion); }
     if (newmode == NUMBERS) { _showDialog(""); }
-#    if (DSP_MODEL == DSP_ILI9488) || (DSP_MODEL == DSP_ST7796)
+#    if ((DSP_WIDTH == 480) && (DSP_HEIGHT == 320)) || ((DSP_WIDTH == 320) && (DSP_HEIGHT == 240))
     if (newmode == PRESETS) {
         _pager->setPage(pages[PG_PRESETS], true);
         presets_drawScreen();
