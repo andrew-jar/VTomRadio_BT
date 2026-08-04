@@ -8,6 +8,7 @@ class TimeKeeper {
     volatile bool forceWeather;
     volatile bool forceTimeSync;
     volatile bool busy;
+    bool timeEverSynced;
     char *weatherBuf;
   public:
     TimeKeeper();

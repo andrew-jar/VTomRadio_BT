@@ -160,6 +160,7 @@ TimeKeeper::TimeKeeper() {
     busy = false;
     forceWeather = true;
     forceTimeSync = true;
+    timeEverSynced = false;
     _returnPlayerTime = _doAfterTime = 0;
     weatherBuf = NULL;
 #if (DSP_MODEL != DSP_DUMMY || defined(USE_NEXTION)) && !defined(HIDE_WEATHER)
@@ -320,8 +321,11 @@ void TimeKeeper::_upClock() {
     if (config.isRTCFound()) {
         tm currentTime{};
         rtc.getTime(&currentTime);
-        mktime(&currentTime);
-        network_set_timeinfo(currentTime);
+        if (currentTime.tm_year > 100) {
+            mktime(&currentTime);
+            network_set_timeinfo(currentTime);
+            timeEverSynced = true;
+        }
     }
 #else
     bool   updatedFromSystemClock = false;
@@ -335,6 +339,7 @@ void TimeKeeper::_upClock() {
         }
     }
     if (!updatedFromSystemClock) {
+        if (!timeEverSynced) { return; }
         tm currentTime{};
         network_get_timeinfo_snapshot(&currentTime);
         if (currentTime.tm_year > 100 || network.status == SDREADY) {
@@ -402,13 +407,13 @@ void TimeKeeper::_upSDPos() {
 
 void TimeKeeper::timeTask() {
     static uint8_t tsFailCnt = 0;
-    config.waitConnection();
     tm prevTime{};
     network_get_timeinfo_snapshot(&prevTime);
     tm syncedTime{};
-    if (getLocalTime(&syncedTime)) {
+    if (getLocalTime(&syncedTime, 1500)) {
         tsFailCnt = 0;
         forceTimeSync = false;
+        timeEverSynced = true;
         mktime(&syncedTime);
 
         const bool minuteOrDateChanged = (prevTime.tm_min != syncedTime.tm_min) || (prevTime.tm_hour != syncedTime.tm_hour) || (prevTime.tm_mday != syncedTime.tm_mday) ||
@@ -422,10 +427,16 @@ void TimeKeeper::timeTask() {
         }
         network.requestTimeSync();
 #if RTCSUPPORTED
-        if (config.isRTCFound()) { rtc.setTime(&syncedTime); }
+        if (config.isRTCFound()) {
+            rtc.setTime(&syncedTime);
+            timeEverSynced = true;
+        }
 #endif
     } else {
-        if (tsFailCnt < 4) {
+        if (prevTime.tm_year <= 100) {
+            // Time still unknown: retry until first sync succeeds, regardless of fail count
+            forceTimeSync = true;
+        } else if (tsFailCnt < 4) {
             forceTimeSync = true;
             tsFailCnt++;
         } else {
@@ -603,7 +614,6 @@ bool _getWeather() {
                 NULL); // <-- client->onData
         },
         NULL); // <-- weatherClient->onConnect
-    config.waitConnection();
     if (!weatherClient->connect(host, 80)) {
         Serial.println("##WEATHER###: connection failed");
         AsyncClient* client = weatherClient;
