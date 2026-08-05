@@ -258,7 +258,11 @@ void encodersLoop(myEncoder* enc, bool first) {
     if (display.mode() == PRESETS && !presets_keyboardActive()) {
         int8_t delta = enc->encoderChanged();
         if (delta != 0) {
-            irPresetsMove(delta > 0);
+            if (first) {
+                irPresetsShiftBank(delta > 0);
+            } else {
+                irPresetsMove(delta > 0);
+            }
         }
         return;
     }

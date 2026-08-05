@@ -284,7 +284,7 @@ void Config::_setupVersion() {
     uint16_t currentVersion = store.version;
     switch (currentVersion) {
         case 0: saveValue(&store.playlistMovingCursor, false); break;
-        case 1: saveValue(&store.encodersIndependent, false); break;
+        case 1: saveValue(&store.encodersIndependent, true); break;
         case 2: saveValue(&store.rssiAsText, false); break;
         case 3: break;
         case 4: saveValue(&store.serialLittlefsEnabled, true); break;
@@ -1360,7 +1360,7 @@ void Config::resetSystem(const char* val, uint8_t clientId) {
         saveValue(&store.yTouchMirroring, true, false);
 #endif
         saveValue(&store.skipPlaylistUpDown, false);
-        saveValue(&store.encodersIndependent, false);
+    saveValue(&store.encodersIndependent, true);
         setIRTolerance(40);
         netserver.requestOnChange(GETCONTROLS, clientId);
         return;
@@ -1418,7 +1418,7 @@ void Config::setDefaults() {
     store.screensaverBlank = false;
     snprintf(store.mdnsname, MDNS_LENGTH, "radio-%x", (unsigned int)getChipId());
     store.skipPlaylistUpDown = false;
-    store.encodersIndependent = false;
+    store.encodersIndependent = true;
     store.screensaverPlayingEnabled = false;
     store.screensaverPlayingTimeout = 5;
     store.screensaverPlayingBlank = false;
