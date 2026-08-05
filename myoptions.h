@@ -76,19 +76,21 @@ Supported languages: HU, PL, NL, GR, DE, CZ, SK (UA Local/namedays/namedays_UA.h
 #define I2S_BCLK 5
 #define I2S_LRC  6
 // #define I2S_MCLK 0  /* CS4344 DAC: MCLK pin (dla PCM5102A nie jest wymagany / not needed for PCM5102A) */
-//Wolne piny odpowiednie dla MCLK: GPIO 0, 16, 45, 46
+//Wolne piny odpowiednie dla MCLK: GPIO 0, 45, 46, 47
 
 /*----- ENCODER 1 ------*/
-//#define ENC_BTNR 47 // S2 41
-//#define ENC_BTNL 42 // S1 40 
-//#define ENC_BTNB 21 // KEY 39
-// #define ENC_INTERNALPULLUP	true
+#define ENC_BTNR 16 // S2 (42)
+#define ENC_BTNL 42 // S1 (16)
+#define ENC_BTNB 21 // KEY 
+#define ENC_INTERNALPULLUP	true
+
 
 /*----- ENCODER 2 -----*/
-#define ENC2_BTNR 41 // S2 47
-#define ENC2_BTNL 40 // S1 48-RGB LED!
-#define ENC2_BTNB 39 // KEY 21
+#define ENC2_BTNR 41 // S2 
+#define ENC2_BTNL 40 // S1 
+#define ENC2_BTNB 39 // KEY 
 #define ENC2_INTERNALPULLUP	true
+
 
 /*----- CLOCK MODUL RTC DS3231 -----*/
  //#define RTC_SCL			     7
