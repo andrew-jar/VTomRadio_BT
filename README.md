@@ -76,9 +76,9 @@ Schemat zasilania ESP32-S3 i WROOM (filtrowanie, kondensatory odsprzęgające):
 
 ## presets.cpp
 
-- Usunąłem fałszywy partial refresh.
-- Włączyłem realny partial update i przeniosłem bufor do PSRAM.
-- Dzięki temu UI działa szybciej i zużywa mniej RAM.
+- Usunalem falszywy partial refresh.
+- Wlaczylem realny partial update i przenioslem bufor do PSRAM.
+Dzieki temu UI działa szybciej i zuzywa mniej RAM.
 
 --------------------------------------------
 
