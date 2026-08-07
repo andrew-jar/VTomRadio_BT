@@ -23,6 +23,7 @@ static bool clock_tts_audio_progress_seen = false;
 static int clock_lastMinute = -1;
 static int clock_tts_saved_station = -1;
 static bool clock_tts_resume_after = false;
+static unsigned long clock_tts_wait_before_speak = 0;
 static constexpr unsigned long CLOCK_TTS_MAX_ACTIVE_MS = 12000;
 static constexpr unsigned long CLOCK_TTS_NO_PROGRESS_MS = 3500;
 
@@ -108,6 +109,7 @@ void clock_tts_enable(bool enable) {
     clock_tts_last_audio_time = 0;
     clock_tts_audio_progress_seen = false;
     clock_tts_resume_after = false;
+    clock_tts_wait_before_speak = 0;
     config.isClockTTS = false;
   }
 }
@@ -125,6 +127,7 @@ void clock_tts_setup() {
   clock_tts_last_audio_time = 0;
   clock_tts_audio_progress_seen = false;
   clock_tts_resume_after = false;
+  clock_tts_wait_before_speak = 0;
   clock_lastMinute = -1;
   clock_tts_enabled = config.store.clockTtsEnabled;
   clock_tts_set_interval(config.store.clockTtsIntervalMinutes);
@@ -197,9 +200,16 @@ void clock_tts_loop() {
       clock_tts_fade_timer = nowMillis;
     }
     if (clock_tts_fade_volume <= 0) {
-      clock_tts_saved_station = config.lastStation();  // Aktuális állomás mentése
-      config.isClockTTS = true;
-      delay(150);
+      if (clock_tts_wait_before_speak == 0) {
+        clock_tts_saved_station = config.lastStation();  // Aktuális állomás mentése
+        config.isClockTTS = true;
+        clock_tts_wait_before_speak = nowMillis + 150;
+        return;
+      }
+      if (nowMillis < clock_tts_wait_before_speak) {
+        return;
+      }
+      clock_tts_wait_before_speak = 0;
       char buf[48];
       clock_tts_announcement(buf, sizeof(buf), tm_struct->tm_hour, tm_struct->tm_min, clock_tts_language);
       player.setVolume(clock_tts_prev_volume);
@@ -222,6 +232,7 @@ void clock_tts_loop() {
         clock_tts_audio_progress_seen = false;
         clock_tts_resume_after = false;
         clock_ttsActive = false;
+        clock_tts_wait_before_speak = 0;
         config.isClockTTS = false;
       }
       clock_tts_fading_down = false;

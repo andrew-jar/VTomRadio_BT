@@ -9,13 +9,13 @@
 extern decltype(nextion) nextion;  // Nextion kijelző objektum (extern)
 #endif
 
-String currentArtist = "";
-String currentTitle = "";
-uint16_t currentStationId = static_cast<uint16_t>(-1);
-bool metaOff = false; 
+extern String currentArtist;
+extern String currentTitle;
+extern uint16_t currentStationId;
+extern bool metaOff;
 
-static bool g_forcePlaylistStationName = false;
-static String g_forcedPlaylistStationName = "";
+extern bool g_forcePlaylistStationName;
+extern String g_forcedPlaylistStationName;
 
 static bool isDotPlaylistStationActive() {
   const char *name = config.station.name;

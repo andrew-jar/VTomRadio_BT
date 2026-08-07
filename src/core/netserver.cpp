@@ -1661,8 +1661,9 @@ void NetServer::processQueue() {
         break;
       }
       case GETSCREEN:
-  sprintf(
+  snprintf(
     wsBuf,
+    sizeof(wsBuf),
     "{\"flip\":%d,\"inv\":%d,\"nump\":%d,\"plmc\":%d,\"dcc\":%d,\"slrt\":%d,\"tsf\":%d,\"tsd\":%d,\"dspon\":%d,"
     "\"tsmx\":%d,\"tsmy\":%d,"
     "\"br\":%d,\"con\":%d,"
@@ -1698,8 +1699,10 @@ void NetServer::processQueue() {
       case GETTIMEZONE:
       {
         const bool monoEnabled = (config.store.clockFontStyle == CLOCKFONT_STYLE_DIGI7) && config.store.clockFontMono;
-        sprintf(
-          wsBuf, "{\"tzh\":%d,\"tzm\":%d,\"sntp1\":\"%s\",\"sntp2\":\"%s\",\"timeint\":%d,\"timeintrtc\":%d,\"dateformat\":%d,\"clockfont\":%u,\"clockfontmono\":%d,\"clockampm\":%d}",
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"tzh\":%d,\"tzm\":%d,\"sntp1\":\"%s\",\"sntp2\":\"%s\",\"timeint\":%d,\"timeintrtc\":%d,\"dateformat\":%d,\"clockfont\":%u,\"clockfontmono\":%d,\"clockampm\":%d}",
           config.store.tzHour, config.store.tzMin, config.store.sntp1, config.store.sntp2,
           config.store.timeSyncInterval, config.store.timeSyncIntervalRTC, config.store.dateFormat,
           static_cast<unsigned int>(config.store.clockFontStyle), monoEnabled, config.store.clockAmPmStyle
@@ -1707,93 +1710,114 @@ void NetServer::processQueue() {
         break;
       }
       case GETWEATHER:
-        sprintf(
-          wsBuf, "{\"wen\":%d,\"wlat\":\"%s\",\"wlon\":\"%s\",\"wkey\":\"%s\",\"wint\":%d}", config.store.showweather, config.store.weatherlat,
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"wen\":%d,\"wlat\":\"%s\",\"wlon\":\"%s\",\"wkey\":\"%s\",\"wint\":%d}",
+          config.store.showweather,
+          config.store.weatherlat,
           config.store.weatherlon, config.store.weatherkey, config.store.weatherSyncInterval
         );
         break;
       case GETCONTROLS:
       {
         const bool dualEncodersConfigured = (ENC_BTNL != 255 && ENC_BTNR != 255) && (ENC2_BTNL != 255 && ENC2_BTNR != 255);
-        sprintf(
-          wsBuf, "{\"irtl\":%d,\"encind\":%d,\"encindavail\":%d,\"skipup\":%d}", config.store.irtlp,
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"irtl\":%d,\"encind\":%d,\"encindavail\":%d,\"skipup\":%d}",
+          config.store.irtlp,
           dualEncodersConfigured ? config.store.encodersIndependent : 0, dualEncodersConfigured, config.store.skipPlaylistUpDown
         );
         break;
       }
-      case DSPON: sprintf(wsBuf, "{\"dspontrue\":%d}", 1); break;
+      case DSPON: snprintf(wsBuf, sizeof(wsBuf), "{\"dspontrue\":%d}", 1); break;
       case STATION:
         requestOnChange(STATIONNAME, clientId);
         requestOnChange(ITEM, clientId);
         break;
-      case STATIONNAME: sprintf(wsBuf, "{\"payload\":[{\"id\":\"nameset\", \"value\": \"%s\"}]}", config.station.name); break;
-      case ITEM:        sprintf(wsBuf, "{\"current\": %d}", config.lastStation()); break;
+      case STATIONNAME: snprintf(wsBuf, sizeof(wsBuf), "{\"payload\":[{\"id\":\"nameset\", \"value\": \"%s\"}]}", config.station.name); break;
+      case ITEM:        snprintf(wsBuf, sizeof(wsBuf), "{\"current\": %d}", config.lastStation()); break;
       case TITLE:
-        sprintf(wsBuf, "{\"payload\":[{\"id\":\"meta\", \"value\": \"%s\"}]}", config.station.title);
+        snprintf(wsBuf, sizeof(wsBuf), "{\"payload\":[{\"id\":\"meta\", \"value\": \"%s\"}]}", config.station.title);
         Serial.printf("##CLI.META#: %s\r\n> ", config.station.title);
         break;
       case VOLUME:
-        sprintf(wsBuf, "{\"payload\":[{\"id\":\"volume\", \"value\": %d}]}", config.store.volume);
+        snprintf(wsBuf, sizeof(wsBuf), "{\"payload\":[{\"id\":\"volume\", \"value\": %d}]}", config.store.volume);
         Serial.printf("##CLI.VOL#: %d\r\n", config.store.volume);
         break;
       case NRSSI:
-        sprintf(
-          wsBuf, "{\"payload\":[{\"id\":\"rssi\", \"value\": %d}, {\"id\":\"heap\", \"value\": %d}]}", rssi,
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"payload\":[{\"id\":\"rssi\", \"value\": %d}, {\"id\":\"heap\", \"value\": %d}]}",
+          rssi,
           (player.isRunning() && config.store.audioinfo) ? (int)(100 * player.inBufferFilled() / playerBufMax) : 0
         ); /*rssi = 255;*/
         break;
       case SDPOS:
         //"módosítás" Itt adja át az SD kártya pozícióját a csúszkához és a számlálóhoz.
-        sprintf(
-          wsBuf, "{\"sdpos\": %lu,\"sdtpos\": %lu,\"sdtend\": %lu}", player.getAudioFilePosition(), player.getAudioCurrentTime(), player.getAudioFileDuration()
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"sdpos\": %lu,\"sdtpos\": %lu,\"sdtend\": %lu}",
+          player.getAudioFilePosition(),
+          player.getAudioCurrentTime(),
+          player.getAudioFileDuration()
         );
         //Serial.printf("netserver.cpp-->wsBuf: %s \n", wsBuf);
         break;
       // Az mp3 fájlon belül a zenekezdeti byte és utolsó byte pozíciója.
       case SDLEN:
-        sprintf(wsBuf, "{\"sdmin\": %lu,\"sdmax\": %lu}", player.sd_min, player.sd_max);  // Az audionanlersben kap értéket.
+        snprintf(wsBuf, sizeof(wsBuf), "{\"sdmin\": %lu,\"sdmax\": %lu}", player.sd_min, player.sd_max);  // Az audionanlersben kap értéket.
         //Serial.printf("netserver.cpp-->wsBuf: %s \n", wsBuf);
         break;
-      case SDSNUFFLE: sprintf(wsBuf, "{\"snuffle\": %d}", config.store.sdsnuffle); break;
+      case SDSNUFFLE: snprintf(wsBuf, sizeof(wsBuf), "{\"snuffle\": %d}", config.store.sdsnuffle); break;
       case BITRATE:
-        sprintf(
-          wsBuf, "{\"payload\":[{\"id\":\"bitrate\", \"value\": %d}, {\"id\":\"fmt\", \"value\": \"%s\"}]}", config.station.bitrate, getFormat(config.configFmt)
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"payload\":[{\"id\":\"bitrate\", \"value\": %d}, {\"id\":\"fmt\", \"value\": \"%s\"}]}",
+          config.station.bitrate,
+          getFormat(config.configFmt)
         );
         break;
       case MODE:
-        sprintf(wsBuf, "{\"payload\":[{\"id\":\"playerwrap\", \"value\": \"%s\"}]}", player.status() == PLAYING ? "playing" : "stopped");
+        snprintf(wsBuf, sizeof(wsBuf), "{\"payload\":[{\"id\":\"playerwrap\", \"value\": \"%s\"}]}", player.status() == PLAYING ? "playing" : "stopped");
         break;
       case EQUALIZER:
-        sprintf(
-          wsBuf, "{\"payload\":[{\"id\":\"bass\", \"value\": %d}, {\"id\": \"middle\", \"value\": %d}, {\"id\": \"trebble\", \"value\": %d}]}",
+        snprintf(
+          wsBuf,
+          sizeof(wsBuf),
+          "{\"payload\":[{\"id\":\"bass\", \"value\": %d}, {\"id\": \"middle\", \"value\": %d}, {\"id\": \"trebble\", \"value\": %d}]}",
           config.store.bass, config.store.middle, config.store.trebble
         );
         break;
-      case BALANCE: sprintf(wsBuf, "{\"payload\":[{\"id\": \"balance\", \"value\": %d}]}", config.store.balance); break;
+      case BALANCE: snprintf(wsBuf, sizeof(wsBuf), "{\"payload\":[{\"id\": \"balance\", \"value\": %d}]}", config.store.balance); break;
       case GETVOLCURVE:
       {
         wsBuf[0] = '\0';
-        strcat(wsBuf, "{\"payload\":[");
+        strlcat(wsBuf, "{\"payload\":[", sizeof(wsBuf));
         for (int i = 1; i <= 21; i++) {
           char item[48];
           snprintf(item, sizeof(item), "{\"id\":\"vc%d\",\"value\":%d}%s", i, (int)player.getVolumeCurveDbPoint(i), (i < 21) ? "," : "");
-          strcat(wsBuf, item);
+          strlcat(wsBuf, item, sizeof(wsBuf));
         }
-        strcat(wsBuf, "]}");
+        strlcat(wsBuf, "]}", sizeof(wsBuf));
         break;
       }
-      case SDINIT:  sprintf(wsBuf, "{\"sdinit\": %d}", SDC_CS != 255); break;
+      case SDINIT:  snprintf(wsBuf, sizeof(wsBuf), "{\"sdinit\": %d}", SDC_CS != 255); break;
       case GETPLAYERMODE:
       {  //DLNA mod
 #ifdef USE_DLNA
         if (config.getMode() == PM_WEB && config.store.playlistSource == PL_SRC_DLNA) {
-          sprintf(wsBuf, "{\"playermode\": \"modedlna\"}");
+          snprintf(wsBuf, sizeof(wsBuf), "{\"playermode\": \"modedlna\"}");
         } else
 #endif
           if (config.getMode() == PM_SDCARD) {
-          sprintf(wsBuf, "{\"playermode\": \"modesd\"}");
+          snprintf(wsBuf, sizeof(wsBuf), "{\"playermode\": \"modesd\"}");
         } else {
-          sprintf(wsBuf, "{\"playermode\": \"modeweb\"}");
+          snprintf(wsBuf, sizeof(wsBuf), "{\"playermode\": \"modeweb\"}");
         }
         break;
       }
@@ -1876,7 +1900,7 @@ void NetServer::loop() {
 #if IR_PIN != 255
 void NetServer::irToWs(const char *protocol, uint64_t irvalue) {
   wsBuf[0] = '\0';
-  sprintf(wsBuf, "{\"ircode\": %llu, \"protocol\": \"%s\"}", irvalue, protocol);
+  snprintf(wsBuf, sizeof(wsBuf), "{\"ircode\": %llu, \"protocol\": \"%s\"}", irvalue, protocol);
   websocket.textAll(wsBuf);
 }
 
@@ -1885,8 +1909,8 @@ void NetServer::irValsToWs() {
     return;
   }
   wsBuf[0] = '\0';
-  sprintf(
-    wsBuf, "{\"irvals\": [%llu, %llu, %llu]}", config.ircodes.irVals[config.irBtnId][0], config.ircodes.irVals[config.irBtnId][1],
+  snprintf(
+    wsBuf, sizeof(wsBuf), "{\"irvals\": [%llu, %llu, %llu]}", config.ircodes.irVals[config.irBtnId][0], config.ircodes.irVals[config.irBtnId][1],
     config.ircodes.irVals[config.irBtnId][2]
   );
   websocket.textAll(wsBuf);
@@ -1978,7 +2002,7 @@ void NetServer::onWsMessage(void *arg, uint8_t *data, size_t len, uint8_t client
 
 void NetServer::getPlaylist(uint8_t clientId) {
   //sprintf(nsBuf, "{\"file\": \"http://%s%s\"}", config.ipToStr(WiFi.localIP()), PLAYLIST_PATH);
-  sprintf(nsBuf, "{\"file\": \"http://%s%s\"}", config.ipToStr(WiFi.localIP()), REAL_PLAYL);  //DLNA mod
+  snprintf(nsBuf, sizeof(nsBuf), "{\"file\": \"http://%s%s\"}", config.ipToStr(WiFi.localIP()), REAL_PLAYL);  //DLNA mod
   if (clientId == 0) {
     websocket.textAll(nsBuf);
   } else {

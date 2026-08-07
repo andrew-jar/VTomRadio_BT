@@ -13,15 +13,30 @@ NumWidget::~NumWidget() {
 }
 
 void NumWidget::init(WidgetConfig wconf, uint16_t buffsize, bool uppercase, uint16_t fgcolor, uint16_t bgcolor) {
+    if (_spr) {
+        _spr->deleteSprite();
+        delete _spr;
+        _spr = nullptr;
+    }
+    if (_text) {
+        free(_text);
+        _text = nullptr;
+    }
+    if (_oldtext) {
+        free(_oldtext);
+        _oldtext = nullptr;
+    }
+
     Widget::init(wconf, fgcolor, bgcolor);
     _buffsize = buffsize;
     _text = (char*)malloc(_buffsize);
     _oldtext = (char*)malloc(_buffsize);
-    memset(_text, 0, _buffsize);
-    memset(_oldtext, 0, _buffsize);
+    if (_text) memset(_text, 0, _buffsize);
+    if (_oldtext) memset(_oldtext, 0, _buffsize);
     _uppercase = uppercase;
 
     _spr = new LGFX_Sprite(&dsp);
+    if (!_spr) return;
     _spr->setColorDepth(16);
     _spr->setPsram(true);
     if (font_vlw_clock) {

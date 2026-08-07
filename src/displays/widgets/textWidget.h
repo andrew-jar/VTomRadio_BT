@@ -10,7 +10,16 @@
 
 class TextWidget : public Widget {
   public:
-    TextWidget() {}
+    TextWidget()
+        : _text(nullptr)
+        , _oldtext(nullptr)
+        , _uppercase(false)
+        , _buffsize(0)
+        , _textwidth(0)
+        , _oldtextwidth(0)
+        , _oldleft(0)
+        , _textheight(0)
+        , _charWidth(0) {}
     TextWidget(WidgetConfig wconf, uint16_t buffsize, bool uppercase, uint16_t fgcolor, uint16_t bgcolor) { init(wconf, buffsize, uppercase, fgcolor, bgcolor); }
     ~TextWidget();
     using Widget::init;

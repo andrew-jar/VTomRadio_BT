@@ -408,6 +408,22 @@ char* Config::ipToStr(IPAddress ip) {
     return ipBuf;
 }
 
+void Config::loopCommit() {
+    if (_eepromDirty && (long)(millis() - _eepromCommitDue) > 0) {
+        EEPROM.commit();
+        _eepromDirty = false;
+        _eepromCommitDue = 0;
+    }
+}
+
+void Config::forceCommit() {
+    if (_eepromDirty) {
+        EEPROM.commit();
+        _eepromDirty = false;
+        _eepromCommitDue = 0;
+    }
+}
+
 bool Config::prepareForPlaying(uint16_t stationId) {
     setDspOn(1);
     vuRefLevel = 0;

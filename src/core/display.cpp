@@ -116,16 +116,19 @@ void returnPlayer() {
 
 Display::~Display() {
     delete _pager;
-    delete _footer;
-    delete _plwidget;
-    delete _nums;
-    delete _clock;
-    delete _meta;
-    delete _title1;
-    delete _title2;
-    delete _plcurrent;
-    delete _bticon;
-    delete _btbox;
+    _pager = nullptr;
+
+    // The widget/page ownership graph is rooted in _pager.
+    _footer = nullptr;
+    _plwidget = nullptr;
+    _nums = nullptr;
+    _clock = nullptr;
+    _meta = nullptr;
+    _title1 = nullptr;
+    _title2 = nullptr;
+    _plcurrent = nullptr;
+    _bticon = nullptr;
+    _btbox = nullptr;
 }
 
 void Display::init() {

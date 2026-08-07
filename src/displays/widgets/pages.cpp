@@ -45,8 +45,17 @@ void Pager::setPage(Page* page, bool black){
 
 /*******************************************************/
 Page::~Page() {
-  for (const auto& w : _widgets) removeWidget(w);
-  // what about deleting _pages ???
+  for (auto* w : _widgets) {
+    if (!w) continue;
+    w->setActive(false, false);
+    delete w;
+  }
+  _widgets.clear();
+
+  for (auto* p : _pages) {
+    delete p;
+  }
+  _pages.clear();
 }
 
 void Page::loop() {
@@ -60,11 +69,11 @@ Widget& Page::addWidget(Widget* widget) {
 }
 
 bool Page::removeWidget(Widget* widget){
-  widget->setActive(false, _active);
+  if (!widget) return false;
   auto i = std::find_if(_widgets.begin(), _widgets.end(), [&widget](const Widget* wn){ return widget == wn; });
   if (i != _widgets.end()){
+    (*i)->setActive(false, _active);
     delete (*i);
-    (*i) = nullptr;
     _widgets.erase(i);
     return true;
   }
@@ -79,10 +88,10 @@ Page& Page::addPage(Page* page){
 }
 
 bool Page::removePage(Page* page){
+  if (!page) return false;
   auto i = std::find_if(_pages.begin(), _pages.end(), [&page](const Page* pn){ return page == pn; });
   if (i != _pages.end()){
     delete (*i);
-    (*i) = nullptr;
     _pages.erase(i);
     return true;
   }

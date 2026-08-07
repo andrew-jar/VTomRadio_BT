@@ -11,11 +11,25 @@ ScrollWidget::~ScrollWidget() {
     if (_spr) {
         _spr->deleteSprite();
         delete _spr;
+        _spr = nullptr;
     }
-    if (_sep) free(_sep);
+    if (_sep) {
+        free(_sep);
+        _sep = nullptr;
+    }
 }
 
 void ScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fgcolor, uint16_t bgcolor) {
+
+    if (_spr) {
+        _spr->deleteSprite();
+        delete _spr;
+        _spr = nullptr;
+    }
+    if (_sep) {
+        free(_sep);
+        _sep = nullptr;
+    }
 
     TextWidget::init(conf.widget, conf.buffsize, conf.uppercase, fgcolor, bgcolor);
 
@@ -28,6 +42,7 @@ void ScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fgcol
     _width = conf.width;
 
     _spr = new LGFX_Sprite(&dsp);
+    if (!_spr) return;
     _spr->setColorDepth(16);
     _spr->setPsram(true);
 

@@ -64,12 +64,16 @@ void SDManager::stop(){
 bool SDManager::cardPresent() {
 
   if(!ready) return false;
-  if(sectorSize()<1) {
+  size_t ss = sectorSize();
+  if(ss < 1 || ss > 8192) {
     return false;
   }
-  uint8_t buff[sectorSize()] = { 0 };
+  uint8_t* buff = (uint8_t*)malloc(ss);
+  if(!buff) return false;
+  memset(buff, 0, ss);
   bool bread = readRAW(buff, 1);
-  if(sectorSize()>0 && !bread) return false;
+  free(buff);
+  if(!bread) return false;
   return bread;
 }
 

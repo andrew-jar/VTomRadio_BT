@@ -40,7 +40,11 @@ static uint32_t getWeatherSyncIntervalMs() {
 }
 
 #define SYNC_STACK_SIZE    1024 * 4
-#define SYNC_TASK_CORE     0 // "core_set" 0
+#if CONFIG_FREERTOS_UNICORE
+#define SYNC_TASK_CORE 0
+#else
+#define SYNC_TASK_CORE 1
+#endif
 #define SYNC_TASK_PRIORITY 3 // "task_prioritas" 3
 #define WEATHER_STRING_L   254
 /*
@@ -489,7 +493,11 @@ bool _getWeather() {
                     if (bodyStart != NULL) {
                         bodyStart += 4;
                         size_t bodyLen = len - (bodyStart - (const char*)d);
-                        char   line[bodyLen + 1];
+                        char* line = (char*)malloc(bodyLen + 1);
+                        if (!line) {
+                            Serial.println("##WEATHER###: body alloc failed");
+                            return;
+                        }
                         memcpy(line, bodyStart, bodyLen);
                         line[bodyLen] = '\0';
                         /* parse it */
@@ -563,7 +571,10 @@ bool _getWeather() {
                         wind_speed *= 3.6f;
 #    endif
 
-                        if (!result) { return; }
+                        if (!result) {
+                            free(line);
+                            return;
+                        }
 
 #    ifdef USE_NEXTION
                         nextion.putcmdf("press_txt.txt=\"%dmm\"", press);
@@ -606,6 +617,7 @@ bool _getWeather() {
                         sprintf(timekeeper.weatherBuf, LANG::weatherFmt, desc, tempf, press, hum);
 #        endif
 #    endif
+                        free(line);
                         display.putRequest(NEWWEATHER);
                     } else {
                         Serial.println("##WEATHER###: weather not found !");
