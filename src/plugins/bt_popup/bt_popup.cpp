@@ -8,6 +8,10 @@ volatile bool btPopupActive = false;
 volatile unsigned long btPopupUntil = 0;
 bool btConnected = false;
 
+static portMUX_TYPE g_btPopupMux = portMUX_INITIALIZER_UNLOCKED;
+static char g_btPopupNameBuf[96] = "";
+static char g_btPopupMacBuf[32] = "";
+
 // Parser dla linii z WROOM: EVT A2DP_CONN CONNECTED MAC=... NAME="..."
 void btPopupHandleWroomLine(String line) {
     line.trim();
@@ -48,23 +52,35 @@ void btPopupHandleWroomLine(String line) {
 }
 
 void btPopupShow(String name, String mac) {
+    portENTER_CRITICAL(&g_btPopupMux);
     btPopupName = name;
     btPopupMac = mac;
+    strlcpy(g_btPopupNameBuf, name.c_str(), sizeof(g_btPopupNameBuf));
+    strlcpy(g_btPopupMacBuf, mac.c_str(), sizeof(g_btPopupMacBuf));
     btPopupUntil = millis() + 4000;
     btPopupActive = true;
     btConnected = true;
+    portEXIT_CRITICAL(&g_btPopupMux);
     Serial.printf("[BT] SHOW %s\n", name.c_str());
 }
 
 void btPopupInit() {
+    portENTER_CRITICAL(&g_btPopupMux);
     btPopupActive = false;
     btPopupUntil = 0;
+    g_btPopupNameBuf[0] = '\0';
+    g_btPopupMacBuf[0] = '\0';
+    portEXIT_CRITICAL(&g_btPopupMux);
 }
 
 void btPopupCancel() {
+    portENTER_CRITICAL(&g_btPopupMux);
     btPopupActive = false;
     btPopupName = "";
     btPopupMac = "";
+    g_btPopupNameBuf[0] = '\0';
+    g_btPopupMacBuf[0] = '\0';
+    portEXIT_CRITICAL(&g_btPopupMux);
 }
 
 void btPopupForceClose() {
@@ -81,4 +97,18 @@ void btPopupLoop() {
         Serial.printf("[BT] TIMEOUT (until=%lu now=%lu)\n", btPopupUntil, millis());
         btPopupCancel();
     }
+}
+
+void btPopupSnapshot(char* name, size_t nameSize, char* mac, size_t macSize, unsigned long* untilMs, bool* active) {
+    if (name && nameSize > 0) name[0] = '\0';
+    if (mac && macSize > 0) mac[0] = '\0';
+    if (untilMs) *untilMs = 0;
+    if (active) *active = false;
+
+    portENTER_CRITICAL(&g_btPopupMux);
+    if (name && nameSize > 0) strlcpy(name, g_btPopupNameBuf, nameSize);
+    if (mac && macSize > 0) strlcpy(mac, g_btPopupMacBuf, macSize);
+    if (untilMs) *untilMs = btPopupUntil;
+    if (active) *active = btPopupActive;
+    portEXIT_CRITICAL(&g_btPopupMux);
 }

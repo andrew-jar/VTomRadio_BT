@@ -19,3 +19,4 @@ void btPopupShow(String name, String mac);
 void btPopupCancel();
 void btPopupForceClose();
 void btPopupHandleWroomLine(String line);
+void btPopupSnapshot(char* name, size_t nameSize, char* mac, size_t macSize, unsigned long* untilMs, bool* active);
