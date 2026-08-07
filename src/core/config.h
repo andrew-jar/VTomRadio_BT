@@ -391,6 +391,8 @@ class Config {
 #if IR_PIN != 255
     void setIrBtn(int val);
 #endif
+    void  loopCommit();
+    void  forceCommit();
     void  resetSystem(const char* val, uint8_t clientId);
     bool  littlefsCleanup();
     void  waitConnection();
@@ -407,7 +409,16 @@ class Config {
         *field = value;
         size_t address = getAddr(field);
         EEPROM.put(address, value);
-        if (commit) { EEPROM.commit(); }
+        if (commit) {
+            if (force) {
+                EEPROM.commit();
+                _eepromDirty = false;
+                _eepromCommitDue = 0;
+            } else {
+                _eepromDirty = true;
+                _eepromCommitDue = millis() + 2000;
+            }
+        }
     }
 
     void saveValue(char* field, const char* value, size_t N, bool commit = true, bool force = false) {
@@ -416,7 +427,16 @@ class Config {
         size_t address = getAddr(field);
         size_t fieldlen = strlen(field);
         for (size_t i = 0; i <= fieldlen; i++) { EEPROM.write(address + i, field[i]); }
-        if (commit) { EEPROM.commit(); }
+        if (commit) {
+            if (force) {
+                EEPROM.commit();
+                _eepromDirty = false;
+                _eepromCommitDue = 0;
+            } else {
+                _eepromDirty = true;
+                _eepromCommitDue = millis() + 2000;
+            }
+        }
     }
 
     uint32_t getChipId() {
@@ -431,6 +451,8 @@ class Config {
     bool        _bootDone;
     bool        _rtcFound;
     FS*         _SDplaylistFS;
+    unsigned long _eepromCommitDue = 0;
+    bool          _eepromDirty = false;
     void        setDefaults();
     static void doSleep();
     uint16_t    color565(uint8_t r, uint8_t g, uint8_t b);

@@ -9,8 +9,14 @@
 
 
 TextWidget::~TextWidget() {
-    free(_text);
-    free(_oldtext);
+    if (_text) {
+        free(_text);
+        _text = nullptr;
+    }
+    if (_oldtext) {
+        free(_oldtext);
+        _oldtext = nullptr;
+    }
 }
 
 void TextWidget::_charSize(uint8_t textsize, uint8_t& width, uint16_t& height) {
@@ -19,12 +25,21 @@ void TextWidget::_charSize(uint8_t textsize, uint8_t& width, uint16_t& height) {
 }
 
 void TextWidget::init(WidgetConfig wconf, uint16_t buffsize, bool uppercase, uint16_t fgcolor, uint16_t bgcolor) {
+    if (_text) {
+        free(_text);
+        _text = nullptr;
+    }
+    if (_oldtext) {
+        free(_oldtext);
+        _oldtext = nullptr;
+    }
+
     Widget::init(wconf, fgcolor, bgcolor);
     _buffsize = buffsize;
     _text = (char*)malloc(sizeof(char) * _buffsize);
-    memset(_text, 0, _buffsize);
     _oldtext = (char*)malloc(sizeof(char) * _buffsize);
-    memset(_oldtext, 0, _buffsize);
+    if (_text) memset(_text, 0, _buffsize);
+    if (_oldtext) memset(_oldtext, 0, _buffsize);
     _charSize(_config.textsize, _charWidth, _textheight);
     _textwidth = _oldtextwidth = _oldleft = 0;
     _uppercase = uppercase;

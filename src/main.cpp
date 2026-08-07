@@ -80,6 +80,15 @@ extern decode_results irResults;
 static TaskHandle_t clockTtsTaskHandle = nullptr;
 static bool         serialLittlefsEnabled = true;
 
+struct BacklightFade {
+    bool          active = false;
+    uint8_t       current = 0;
+    uint8_t       target = 0;
+    unsigned long lastMs = 0;
+};
+
+static BacklightFade g_backlightFade;
+
 static bool loadSerialLittlefsEnabledFromEeprom() {
     config.eepromRead(EEPROM_START, config.store);
     if (config.store.config_set != 0) return true;
@@ -107,6 +116,29 @@ static void startClockTtsTask() {
 static void hideDisplayBacklight() {
 #if BRIGHTNESS_PIN != 255
     display.setBrightnessPercent(0);
+    g_backlightFade.active = false;
+    g_backlightFade.current = 0;
+    g_backlightFade.target = 0;
+    g_backlightFade.lastMs = 0;
+#endif
+}
+
+static void updateBacklightFade() {
+#if BRIGHTNESS_PIN != 255
+    if (!g_backlightFade.active) return;
+
+    unsigned long now = millis();
+    if (now - g_backlightFade.lastMs < 12) return;
+    g_backlightFade.lastMs = now;
+
+    if (g_backlightFade.current < g_backlightFade.target) {
+        uint8_t nextLevel = g_backlightFade.current + 2;
+        g_backlightFade.current = nextLevel > g_backlightFade.target ? g_backlightFade.target : nextLevel;
+        display.setBrightnessPercent(g_backlightFade.current);
+    } else {
+        g_backlightFade.active = false;
+        display.setBrightnessPercent(g_backlightFade.target);
+    }
 #endif
 }
 
@@ -122,14 +154,11 @@ static void revealDisplayBacklight(bool forceOn) {
 
     if (targetBrightness == 0) return;
 
-    constexpr uint8_t fadeStep = 2;
-    for (uint8_t level = 0; level < targetBrightness;) {
-        display.setBrightnessPercent(level);
-        delay(12);
-        uint8_t nextLevel = level + fadeStep;
-        level = nextLevel > targetBrightness ? targetBrightness : nextLevel;
-    }
-    display.setBrightnessPercent(targetBrightness);
+    g_backlightFade.target = targetBrightness;
+    g_backlightFade.current = 0;
+    g_backlightFade.lastMs = millis();
+    g_backlightFade.active = true;
+    display.setBrightnessPercent(0);
 #else
     (void)forceOn;
 #endif
@@ -214,10 +243,12 @@ void setup() {
         initControls();
         display.putRequest(DSP_START);
         while (!display.ready()) {
+            updateBacklightFade();
             if (serviceMaintenanceMode()) continue;
             delay(10);
         }
         revealDisplayBacklight(true);
+        player.lockOutput = false;
         return;
     }
     if (SDC_CS != 255) {
@@ -230,6 +261,7 @@ void setup() {
     hideDisplayBacklight();
     display.putRequest(DSP_START);
     while (!display.ready()) {
+        updateBacklightFade();
         if (serviceMaintenanceMode()) continue;
         delay(10);
     }
@@ -247,6 +279,9 @@ void setup() {
 }
 
 void loop() {
+    config.loopCommit();
+    updateBacklightFade();
+
     if (serviceMaintenanceMode()) return;
 
     timekeeper.loop1();

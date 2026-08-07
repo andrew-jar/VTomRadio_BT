@@ -261,6 +261,7 @@ void BitrateWidget::refresh() {
     _clear();
     if (_spr) {
         _spr->deleteSprite();
+        delete _spr;
         _spr = nullptr;
     }
     _draw();

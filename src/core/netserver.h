@@ -202,7 +202,7 @@ class NetServer {
     requestType_e request;
     QueueHandle_t nsQueue;
     char _wscmd[65], _wsval[65];
-    char wsBuf[BUFLEN*5];
+    char wsBuf[4096];
     int rssi;
     uint32_t playerBufMax;
     void getPlaylist(uint8_t clientId);

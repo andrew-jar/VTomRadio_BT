@@ -9,7 +9,15 @@
 
 class Widget {
   public:
-    Widget() { _active = false; }
+        Widget()
+                : _active(false)
+                , _moved(false)
+                , _locked(false)
+                , _fgcolor(0)
+                , _bgcolor(0)
+                , _width(0)
+                , _config{0, 0, 0, WA_LEFT}
+                , _backMove{0, 0, 0} {}
     virtual ~Widget() {}
     virtual void loop() {}
     virtual void init(WidgetConfig conf, uint16_t fgcolor, uint16_t bgcolor) {

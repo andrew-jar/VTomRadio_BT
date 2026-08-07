@@ -22,6 +22,20 @@ textBoxWidget::~textBoxWidget() {
 }
 
 void textBoxWidget::init(textBoxConfig conf, uint16_t buffsize, bool uppercase) {
+    if (_spr) {
+        _spr->deleteSprite();
+        delete _spr;
+        _spr = nullptr;
+    }
+    if (_text) {
+        free(_text);
+        _text = nullptr;
+    }
+    if (_oldtext) {
+        free(_oldtext);
+        _oldtext = nullptr;
+    }
+
     _boxconf = conf;
 
     WidgetConfig wconf = {conf.left, conf.top, conf.textsize, conf.align};
@@ -38,6 +52,7 @@ void textBoxWidget::init(textBoxConfig conf, uint16_t buffsize, bool uppercase) 
     if (_oldtext) memset(_oldtext, 0, _buffsize);
 
     _spr = new LGFX_Sprite(&dsp);
+    if (!_spr) return;
     _spr->setColorDepth(16);
     _spr->setPsram(true);
 
