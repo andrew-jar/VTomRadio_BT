@@ -86,9 +86,9 @@ Supported languages: HU, PL, NL, GR, DE, CZ, SK (UA Local/namedays/namedays_UA.h
 
 
 /*----- ENCODER 2 -----*/
-#define ENC2_BTNR 41 // S2 
-#define ENC2_BTNL 40 // S1 
-#define ENC2_BTNB 39 // KEY 
+#define ENC2_BTNR 41 // S2-DT
+#define ENC2_BTNL 40 // S1-CLK
+#define ENC2_BTNB 39 // KEY-SW 
 #define ENC2_INTERNALPULLUP	true
 
 
@@ -162,4 +162,4 @@ When music is not playing (stopped or volume is 0), the pin is set to LOW. This 
 // #define dlnaHost "192.168.1.200"
 // #define dlnaIDX  21
 
-#define POWER_LED 38      // Button LED pin (will be turned on when player is on)
+#define POWER_LED  38  // 47-board UNO Button LED pin (will be turned on when player is on)

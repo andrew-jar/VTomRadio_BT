@@ -89,6 +89,7 @@ static void loopDspTask(void* pvParameters) {
         netserver.loop();
 #    endif
 #endif
+#include <cstring>
         vTaskDelay(DSP_TASK_DELAY);
     }
     vTaskDelete(NULL);
@@ -693,31 +694,37 @@ void Display::loop() {
         return;
     }
 
-    if (btPopupActive && hasPendingRequest
+    char          popupName[96];
+    char          popupMac[32];
+    unsigned long popupUntil = 0;
+    bool          popupActive = false;
+    btPopupSnapshot(popupName, sizeof(popupName), popupMac, sizeof(popupMac), &popupUntil, &popupActive);
+
+    if (popupActive && hasPendingRequest
         && (pendingRequest.type == NEWMODE || pendingRequest.type == NEWSTATION || pendingRequest.type == NEXTSTATION || pendingRequest.type == DRAWPLAYLIST)) {
         btPopupCancel();
     }
 
     static bool   s_popupDrawn = false;
     static int    s_lastSec = -1;
-    static String s_lastName = "";
-    static String s_lastMac = "";
+    static char   s_lastName[96] = "";
+    static char   s_lastMac[32] = "";
     static bool   s_wasPopupActive = false;
 
-    if (btPopupActive) {
+    if (popupActive) {
         s_wasPopupActive = true;
-        if (static_cast<int32_t>(millis() - btPopupUntil) >= 0) {
-            btPopupActive = false;
+        if (static_cast<int32_t>(millis() - popupUntil) >= 0) {
+            btPopupCancel();
             return;
         }
 
-        const int32_t remainingMs = static_cast<int32_t>(btPopupUntil - millis());
+        const int32_t remainingMs = static_cast<int32_t>(popupUntil - millis());
         int           sec = (remainingMs > 0) ? (remainingMs / 1000) + 1 : 0;
         if (sec < 0) sec = 0;
         if (sec > 4) sec = 4;
 
-        if (!s_popupDrawn || s_lastSec != sec || s_lastName != btPopupName || s_lastMac != btPopupMac) {
-            Serial.printf("[DISP] popup sec=%d until=%lu now=%lu\n", sec, btPopupUntil, millis());
+        if (!s_popupDrawn || s_lastSec != sec || strcmp(s_lastName, popupName) != 0 || strcmp(s_lastMac, popupMac) != 0) {
+            Serial.printf("[DISP] popup sec=%d until=%lu now=%lu\n", sec, popupUntil, millis());
             const int boxX = 10;
             const int boxY = 50;
             const int boxW = 220;
@@ -732,11 +739,13 @@ void Display::loop() {
             dsp.setTextColor(TFT_WHITE, TFT_BLACK);
             dsp.setTextSize(2);
             dsp.setCursor(20, 85);
-            dsp.print(btPopupName.substring(0, 18));
+            char popupNameShort[19];
+            strlcpy(popupNameShort, popupName, sizeof(popupNameShort));
+            dsp.print(popupNameShort);
 
             dsp.setTextSize(1);
             dsp.setCursor(20, 115);
-            dsp.print(btPopupMac);
+            dsp.print(popupMac);
 
             dsp.setCursor(20, 132);
             dsp.setTextColor(TFT_GREEN, TFT_BLACK);
@@ -749,8 +758,8 @@ void Display::loop() {
 
             s_popupDrawn = true;
             s_lastSec = sec;
-            s_lastName = btPopupName;
-            s_lastMac = btPopupMac;
+            strlcpy(s_lastName, popupName, sizeof(s_lastName));
+            strlcpy(s_lastMac, popupMac, sizeof(s_lastMac));
         }
 
         return;
@@ -767,8 +776,8 @@ void Display::loop() {
 
     s_popupDrawn = false;
     s_lastSec = -1;
-    s_lastName = "";
-    s_lastMac = "";
+    s_lastName[0] = '\0';
+    s_lastMac[0] = '\0';
 
     _refreshStatusWidgets();
     _pager->loop();
