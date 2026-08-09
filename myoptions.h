@@ -162,4 +162,66 @@ When music is not playing (stopped or volume is 0), the pin is set to LOW. This 
 // #define dlnaHost "192.168.1.200"
 // #define dlnaIDX  21
 
+/*----- VU / Spectrum auto-tuning per DSP_MODEL -----*/
+/*
+  OPIS PARAMETRÓW - co robią:
+  Zakresy przy parametrach Spectrum są zalecane praktycznie, a nie twardo wymuszone przez kod.
+
+  VU_BARS_RELEASE_OPT   [1..10]   - o ile jednostek poziomu VU opada na aktualizację.
+                                   1 = bardzo wolno/płynnie, 10 = szybko. Dla wolnych TFT 1.
+
+  VU_PEAK_HOLD_OPT      [500..8000] - ile cykli aktualizacji trzyma się kropka PEAK na górze VU.
+                                   1000 = ~0.5s przy 20 FPS, 4000 = ~2s przy 6-10 FPS na ILI9488.
+
+  SP_BARS_ATTACK_OPT    [10..100, formalnie bez limitu] - szybkość narastania słupków Spectrum.
+                                   W kodzie: step = value / 100.0f
+                                   10 = 0.10f leniwie, 100 = 1.00f natychmiast, >100 możliwe ale >1.0f.
+
+  SP_BARS_RELEASE_OPT   [5..80, formalnie bez limitu]   - szybkość opadania słupków Spectrum.
+                                   W kodzie: step = value / 100.0f
+                                   5 = 0.05f wolno zanika, 80 = 0.80f szybko spada.
+
+  Zalecane dla ILI9488 4" 480x320 SPI (6-10 FPS z SD na tej samej szynie):
+    - Wolno i płynnie:      1 / 4000 / 25 / 15  <- aktualnie
+    - Szybko i dynamicznie: 2 / 2000 / 40 / 30
+    - Super wolno:          1 / 6000 / 15 / 8
+*/
+
+#if DSP_MODEL == DSP_ST7789
+  // ST7789 240x240/320 = 57-76k px, ~20-25 FPS
+  #define VU_BARS_RELEASE_OPT   2
+  #define VU_PEAK_HOLD_OPT      2500
+  #define SP_BARS_ATTACK_OPT    40
+  #define SP_BARS_RELEASE_OPT   30
+#elif DSP_MODEL == DSP_ILI9341
+  #define VU_BARS_RELEASE_OPT   2
+  #define VU_PEAK_HOLD_OPT      3000
+  #define SP_BARS_ATTACK_OPT    35
+  #define SP_BARS_RELEASE_OPT   25
+#elif DSP_MODEL == DSP_ST7796
+  #define VU_BARS_RELEASE_OPT   1
+  #define VU_PEAK_HOLD_OPT      3500
+  #define SP_BARS_ATTACK_OPT    30
+  #define SP_BARS_RELEASE_OPT   20
+#elif DSP_MODEL == DSP_ILI9488
+  // ILI9488 4" 480x320 = 153k px, ~6-10 FPS z SD
+  #define VU_BARS_RELEASE_OPT   2
+  #define VU_PEAK_HOLD_OPT      2000
+  #define SP_BARS_ATTACK_OPT    40
+  #define SP_BARS_RELEASE_OPT   30
+#else
+  #define VU_BARS_RELEASE_OPT   1
+  #define VU_PEAK_HOLD_OPT      3000
+  #define SP_BARS_ATTACK_OPT    30
+  #define SP_BARS_RELEASE_OPT   20
+#endif
+
+#define APPLY_VU_SPECTRUM_PRESET() do { \
+    extern Audio audio; \
+    audio.settings.VU_BARS_RELEASE_STEP = VU_BARS_RELEASE_OPT; \
+    audio.settings.VU_PEAK_HOLD_CYCLES = VU_PEAK_HOLD_OPT; \
+    audio.settings.SP_BARS_ATTACK_STEP = SP_BARS_ATTACK_OPT; \
+    audio.settings.SP_BARS_RELEASE_STEP = SP_BARS_RELEASE_OPT; \
+} while(0)
+
 #define POWER_LED  38  // 47-board UNO Button LED pin (will be turned on when player is on)

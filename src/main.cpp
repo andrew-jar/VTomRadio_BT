@@ -237,6 +237,7 @@ void setup() {
     revealDisplayBacklight(false);
 
     player.init();
+    APPLY_VU_SPECTRUM_PRESET(); // auto VU/Spectrum dla DSP_MODEL z myoptions.h
     network.begin();
     if (network.status != CONNECTED && network.status != SDREADY) {
         netserver.begin();

@@ -24,6 +24,8 @@ char audioI2SVers[] = "\
 #include "vorbis_decoder/vorbis_decoder.h"
 #include "wav_decoder/wav_decoder.h"
 
+Audio audio;
+
 // constants
 constexpr size_t m_frameSizeWav = 4096;
 constexpr size_t m_frameSizeMP3 = 18000;         //  more than one icy-metaint
@@ -509,6 +511,16 @@ Audio::~Audio() {
     vSemaphoreDelete(mutex_audioTaskIsDecoding);
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+bool Audio::isFile() const {
+    if (m_dataMode == AUDIO_LOCALFILE) return true;
+    if (m_streamType == ST_WEBFILE && m_playlistFormat != FORMAT_M3U8) return true; // local file or webfile but not m3u8 file
+    return false;
+}
+bool Audio::isStream() const {
+    if (m_streamType == ST_WEBSTREAM) return true;
+    if (m_playlistFormat == FORMAT_M3U8) return true;
+    return false;
+}
 void Audio::destroy_decoder() {
     if (m_decoder && m_decoder->isValid()) {
         info(*this, evt_info, "{}Decoder has been destroyed", m_decoder->whoIsIt());
@@ -4915,12 +4927,9 @@ void Audio::playAudioData() {
     }
     //--------------------------------------------------------------------------------
 
-    bool isFile = false;
-    bool isStream = false;
-
-    if (m_dataMode == AUDIO_LOCALFILE) isFile = true;
-    if (m_streamType == ST_WEBFILE && m_playlistFormat != FORMAT_M3U8) isFile = true; // local file or webfile but not m3u8 file
-    if (m_streamType == ST_WEBSTREAM || m_playlistFormat == FORMAT_M3U8) isStream = true;
+    // refactored to helpers isFile() / isStream() - commit 5fd6994
+    bool isFile = this->isFile();
+    bool isStream = this->isStream();
     if (!isFile && !isStream) return;
 
     xSemaphoreTake(mutex_audioTaskIsDecoding, 1 * configTICK_RATE_HZ);
@@ -6599,8 +6608,9 @@ void Audio::calculateVUlevel(int32_t* sample) { // Envelope-Follower
     l = abs(m_vu_items.delay_l[pos] >> 23);
     r = abs(m_vu_items.delay_r[pos] >> 23);
 
-    // Attack immediately
-    constexpr float RELEASE = 1.0f; // the bigger, the more sluggish
+    // Attack immediately - now tunable via settings (commit 17558fc)
+    float RELEASE = (float)settings.VU_BARS_RELEASE_STEP;
+    if (RELEASE < 0.1f) RELEASE = 1.0f;
     if (l > m_vu_items.left) {
         m_vu_items.left = l;
     } else if (m_vu_items.left > RELEASE) {
@@ -6612,27 +6622,29 @@ void Audio::calculateVUlevel(int32_t* sample) { // Envelope-Follower
         m_vu_items.right -= RELEASE;
     }
 
-    // LEFT
+    // LEFT - tunable via settings (commit 17558fc)
     if (m_vu_items.left > m_vu_items.left_peak) {
         m_vu_items.left_peak = m_vu_items.left;
-        m_vu_items.left_hold = settings.PEAK_HOLD_SAMPLES;
+        m_vu_items.left_hold = settings.VU_PEAK_HOLD_CYCLES ? settings.VU_PEAK_HOLD_CYCLES : settings.PEAK_HOLD_SAMPLES;
     } else {
         if (m_vu_items.left_hold > 0) {
             m_vu_items.left_hold--;
-        } else if (m_vu_items.left_peak > settings.PEAK_RELEASE) {
-            m_vu_items.left_peak -= settings.PEAK_RELEASE;
+        } else {
+            uint16_t rel = settings.VU_PEAK_RELEASE_STEP ? settings.VU_PEAK_RELEASE_STEP : settings.PEAK_RELEASE;
+            if (m_vu_items.left_peak > rel) m_vu_items.left_peak -= rel;
         }
     }
 
     // RIGHT
     if (m_vu_items.right > m_vu_items.right_peak) {
         m_vu_items.right_peak = m_vu_items.right;
-        m_vu_items.right_hold = settings.PEAK_HOLD_SAMPLES;
+        m_vu_items.right_hold = settings.VU_PEAK_HOLD_CYCLES ? settings.VU_PEAK_HOLD_CYCLES : settings.PEAK_HOLD_SAMPLES;
     } else {
         if (m_vu_items.right_hold > 0) {
             m_vu_items.right_hold--;
-        } else if (m_vu_items.right_peak > settings.PEAK_RELEASE) {
-            m_vu_items.right_peak -= settings.PEAK_RELEASE;
+        } else {
+            uint16_t rel = settings.VU_PEAK_RELEASE_STEP ? settings.VU_PEAK_RELEASE_STEP : settings.PEAK_RELEASE;
+            if (m_vu_items.right_peak > rel) m_vu_items.right_peak -= rel;
         }
     }
 }
@@ -6852,10 +6864,12 @@ void Audio::processSpectrum() {
     // log scale
     for (int i = 0; i < m_fft_items.BANDS; i++) { band[i] = log10f(band[i] + 1e-6f); }
 
-    // --- temporal smoothing (only displayed bands) ---
-    auto smooth = [](float old, float in) {
-        constexpr float ATTACK = 0.6f;
-        constexpr float RELEASE = 0.6f;
+    // --- temporal smoothing (only displayed bands) - tunable via settings (commit cd4b447) ---
+    float ATTACK = settings.SP_BARS_ATTACK_STEP / 100.0f;
+    float RELEASE = settings.SP_BARS_RELEASE_STEP / 100.0f;
+    if (ATTACK < 0.01f) ATTACK = 0.6f;
+    if (RELEASE < 0.01f) RELEASE = 0.6f;
+    auto smooth = [ATTACK, RELEASE](float old, float in) {
         return (in > old) ? old + ATTACK * (in - old) : old + RELEASE * (in - old);
     };
 
