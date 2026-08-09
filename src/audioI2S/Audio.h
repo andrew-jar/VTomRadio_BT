@@ -251,6 +251,8 @@ class Audio {
     bool             setPinout(uint8_t BCLK, uint8_t LRC, uint8_t DOUT, int8_t MCLK = I2S_GPIO_UNUSED);
     bool             pauseResume();
     bool             isRunning() { return m_f_running; }
+    bool             isFile() const;
+    bool             isStream() const;
     void             loop();
     uint32_t         stopSong();
     void             forceMono(bool m);
@@ -464,6 +466,19 @@ class Audio {
         bool     VOLUME_CONTROL = true;            // true: volume and balance control is enabled
         float    VOL_FADING_SPEED = 50.0;          // mute, volume fading 1.0f (fast) ... 100.0f (slow)
         uint32_t BUFFER_TRESHOLD_HLS = UINT16_MAX; // Level at which the HLS-TS stream starts and is reloaded
+        // --- NEW: tunable VU / Spectrum dynamics (commit 17558fc + cd4b447) ---
+        uint16_t VU_BARS_ATTACK_STEP = 1;          // VU bars attack (was hardcoded 1.0f)
+        uint16_t VU_BARS_RELEASE_STEP = 1;         // VU bars release
+        uint16_t VU_BARS_HOLD_CYCLES = 0;          // VU bars hold
+        uint16_t VU_PEAK_ATTACK_STEP = 1;          // VU peak attack
+        uint16_t VU_PEAK_RELEASE_STEP = 1;         // VU peak release (was PEAK_RELEASE)
+        uint16_t VU_PEAK_HOLD_CYCLES = 2000;       // VU peak hold (was PEAK_HOLD_SAMPLES)
+        uint16_t SP_BARS_ATTACK_STEP = 60;         // Spectrum bars attack 0..100 -> 0.6f
+        uint16_t SP_BARS_RELEASE_STEP = 60;        // Spectrum bars release
+        uint16_t SP_BARS_HOLD_CYCLES = 0;          // Spectrum bars hold
+        uint16_t SP_PEAK_ATTACK_STEP = 60;         // Spectrum peak attack
+        uint16_t SP_PEAK_RELEASE_STEP = 60;        // Spectrum peak release
+        uint16_t SP_PEAK_HOLD_CYCLES = 0;          // Spectrum peak hold
     } settings;
 
   private:
@@ -658,6 +673,8 @@ class Audio {
                 char c = *(it - 1);
                 if (c == '+' || c == '-') { --it; }
             }
+
+            extern Audio audio;
 
             // found nothing?
             if (it == end) { return std::nullopt; }
