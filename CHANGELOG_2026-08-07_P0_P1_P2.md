@@ -1,3 +1,37 @@
+# Changelog - 2026-08-13
+
+## Scope
+Hybrid adoption of upstream 0.1.14 FS manager while keeping the existing serial maintenance path.
+
+## FS/boot integration
+- `src/core/fs_api_http.cpp`
+  - Added HTTP filesystem API for external manager compatibility.
+  - Implemented `/api/fs/ping`, `/api/fs/list`, `/api/fs/info`, `/api/fs/read`, `/api/fs/mkdir`, `/api/fs/rmdir`, `/api/fs/delete`, and `/api/reboot`.
+  - Added safe recursive delete handling for files and directories.
+- `src/core/fs_api_http.h`
+  - Declared the HTTP FS manager integration entry points.
+- `src/core/netserver.cpp`
+  - Registered the HTTP FS manager routes.
+  - Integrated upload handling with the new FS manager path.
+- `src/core/commandhandler.cpp`
+  - Added runtime toggle for the HTTP FS manager.
+- `src/core/config.h`
+  - Bumped `CONFIG_VERSION` to 5.
+  - Added persisted `httpFsManagerEnabled` flag next to `serialLittlefsEnabled`.
+- `src/core/config.cpp`
+  - Added defaults and migration for the new HTTP FS manager flag.
+- `src/core/options.h`
+  - Updated firmware version to `0.1.14-mod.hybrid`.
+
+## Validation
+- PlatformIO build: successful.
+- PlatformIO upload: successful.
+- HTTP FS checks: `/api/fs/ping`, `/api/fs/list`, upload, and delete verified on device.
+
+## Notes
+- The legacy serial LittleFS maintenance path remains enabled.
+- Bluetooth behavior was preserved during the integration.
+
 # Changelog - 2026-08-07
 
 ## Scope

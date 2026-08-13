@@ -2,7 +2,7 @@
 #define options_h
 #pragma once
 
-#define FW_VERSION "0.1.13-mod"
+#define FW_VERSION "0.1.14-mod.hybrid"
 
 #ifndef THEME_CSV_VERSION
 #    define THEME_CSV_VERSION "0.0.3"
