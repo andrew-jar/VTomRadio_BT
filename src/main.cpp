@@ -164,6 +164,20 @@ static void revealDisplayBacklight(bool forceOn) {
 #endif
 }
 
+// Boot screen must be lit without fading: nothing pumps updateBacklightFade() while network.begin() blocks.
+static void showDisplayBacklightNow() {
+#if BRIGHTNESS_PIN != 255
+    const uint8_t target = config.store.dspon ? config.store.brightness : 0;
+    if (target == 0) return;
+
+    g_backlightFade.active = false;
+    g_backlightFade.current = target;
+    g_backlightFade.target = target;
+    g_backlightFade.lastMs = millis();
+    display.setBrightnessPercent(target);
+#endif
+}
+
 static bool serviceMaintenanceMode() {
     if (!serialLittlefsEnabled) return false;
     static bool maintenanceScreenShown = false;
@@ -234,7 +248,7 @@ void setup() {
     config.init();
     serialLittlefsEnabled = config.store.serialLittlefsEnabled;
     display.init();
-    revealDisplayBacklight(false);
+    showDisplayBacklightNow();
 
     player.init();
     APPLY_VU_SPECTRUM_PRESET(); // auto VU/Spectrum dla DSP_MODEL z myoptions.h
