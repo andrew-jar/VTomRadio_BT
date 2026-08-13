@@ -10,16 +10,7 @@
 
 class TextWidget : public Widget {
   public:
-    TextWidget()
-        : _text(nullptr)
-        , _oldtext(nullptr)
-        , _uppercase(false)
-        , _buffsize(0)
-        , _textwidth(0)
-        , _oldtextwidth(0)
-        , _oldleft(0)
-        , _textheight(0)
-        , _charWidth(0) {}
+    TextWidget() {}
     TextWidget(WidgetConfig wconf, uint16_t buffsize, bool uppercase, uint16_t fgcolor, uint16_t bgcolor) { init(wconf, buffsize, uppercase, fgcolor, bgcolor); }
     ~TextWidget();
     using Widget::init;
@@ -30,11 +21,11 @@ class TextWidget : public Widget {
     bool uppercase() { return _uppercase; }
 
   protected:
-    char*    _text;
-    char*    _oldtext;
-    bool     _uppercase;
-    uint16_t _buffsize, _textwidth, _oldtextwidth, _oldleft, _textheight;
-    uint8_t  _charWidth;
+    char*    _text = nullptr;
+    char*    _oldtext = nullptr;
+    bool     _uppercase = false;
+    uint16_t _buffsize = 0, _textwidth = 0, _oldtextwidth = 0, _oldleft = 0, _textheight = 0;
+    uint8_t  _charWidth = 0;
 
   protected:
     void     _draw();

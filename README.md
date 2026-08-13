@@ -12,6 +12,60 @@ Moja modyfikacja oparta na projekcie [VTomRadio](https://github.com/VaraiTamas/V
 
 ---------------------------------------------------------------------
 
+## Czym rozni sie ten mod od oryginalu?
+
+Krotko: to nie jest oryginal z paroma dodatkami. W katalogu `src/` jest okolo
+47 zmienionych plikow i ponad 2000 linii wlasnego kodu.
+
+Nowe moduly, ktorych oryginal nie ma:
+
+- `src/core/btbridge.cpp` - most UART do zewnetrznego nadajnika BT (ESP32 WROOM + A2DP).
+- `src/core/serial_littlefs.cpp` - tryb serwisowy po porcie szeregowym z oknem startowym.
+- `src/plugins/bt_popup/bt_popup.cpp` - okno na TFT po polaczeniu z urzadzeniem BT.
+
+Najmocniej przerobione pliki wspolne:
+
+- `netserver.cpp` - obsluga BT z panelu WWW, presety, krzywa glosnosci, bezpieczne formatowanie buforow.
+- `display.cpp` - ikona i status BT w stopce, popup BT, poprawki artefaktow rysowania.
+- `controls.cpp` - rozbudowana obsluga sterowania.
+- `main.cpp` - okno serwisowe przy starcie, nieblokujace rozjasnianie podswietlenia.
+- `options.h` / `config.h` - wlasne opcje BT, powiekszony EEPROM (1024 -> 2048),
+  wiecej kodow IR (20 -> 24 pozycje, fix przyciskow RED/GREEN/YELLOW/BLUE)
+  oraz opozniony zapis EEPROM (mniejsze zuzycie flash).
+- `audioI2S/Audio.*` - strojenie VU i spektrum, wymuszone 48 kHz dla mostu BT.
+
+Dodatkowo caly pakiet poprawek stabilnosci widgetow (wycieki pamieci, podwojne
+zwolnienia, inicjalizacja pol) opisany w `CHANGELOG_2026-08-07_P0_P1_P2.md`.
+
+Uwaga przy aktualizacjach: z powodu skali zmian nie da sie zrobic prostego
+`git merge` z oryginalem. Nowosci z upstream trzeba przenosic wybiorczo.
+
+---------------------------------------------------------------------
+
+## Wersja hybrydowa (0.1.14-mod.hybrid)
+
+Wersja firmware to `0.1.14-mod.hybrid`. "Hybryda" oznacza, ze z oryginalu 0.1.14
+przeniesiony zostal tylko menedzer plikow po WiFi, bez rezygnacji z wlasnego
+trybu serwisowego po porcie szeregowym. Dzieki temu dzialaja oba naraz.
+
+Menedzer plikow po WiFi (`src/core/fs_api_http.cpp`, kod z oryginalu):
+
+- `GET /api/fs/ping` - sprawdzenie, czy system plikow odpowiada.
+- `GET /api/fs/list` - lista plikow i katalogow.
+- `GET /api/fs/info` - rozmiar, zajete i wolne miejsce.
+- `GET /api/fs/read` - odczyt pliku.
+- `POST /api/fs/mkdir`, `/api/fs/rmdir`, `/api/fs/delete` - operacje na plikach.
+- `POST /api/reboot` - restart urzadzenia.
+
+Wlasne dodatki do tego mechanizmu:
+
+- Menedzer mozna wlaczyc i wylaczyc z panelu WWW - przelacznik `HTTP FS manager (WiFi)`
+  w ustawieniach, obok `Serial LittleFS maintenance mode`.
+- Tryb serwisowy po porcie szeregowym (`serialLittlefsEnabled`) zostal zachowany
+  i dziala niezaleznie - okno na wejscie otwiera sie przez 4 sekundy po starcie.
+
+---------------------------------------------------------------------
+
 Wymagane srodowisko kompilacji (VS Code + PlatformIO)
 
 Ten projekt jest przygotowany pod PlatformIO i framework `pioarduino` dla ESP32-S3.
