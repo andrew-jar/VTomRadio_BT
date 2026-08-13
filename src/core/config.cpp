@@ -287,7 +287,10 @@ void Config::_setupVersion() {
         case 1: saveValue(&store.encodersIndependent, true); break;
         case 2: saveValue(&store.rssiAsText, false); break;
         case 3: break;
-        case 4: saveValue(&store.serialLittlefsEnabled, true); break;
+        case 4:
+            saveValue(&store.serialLittlefsEnabled, true, false);
+            saveValue(&store.httpFsManagerEnabled, true, false);
+            break;
     }
     currentVersion++;
     saveValue(&store.version, currentVersion);
@@ -1293,6 +1296,7 @@ void Config::resetSystem(const char* val, uint8_t clientId) {
         saveValue(&store.watchdog, true);
         saveValue(&store.stallWatchdog, true, false);
         saveValue(&store.serialLittlefsEnabled, true, false);
+        saveValue(&store.httpFsManagerEnabled, true, false);
         saveValue(&store.nameday, true);
         saveValue(&store.clockTtsEnabled, false, false);
         saveValue(store.clockTtsLanguage, "HU", sizeof(store.clockTtsLanguage), false);
@@ -1465,6 +1469,7 @@ void Config::setDefaults() {
     store.stationsListReturnTime = 3;
     store.stallWatchdog = true;
     store.serialLittlefsEnabled = true;
+    store.httpFsManagerEnabled = true;
     for (size_t i = 0; i < 21; ++i) { store.volumeCurveDb[i] = kDefaultVolumeCurveDb[i]; }
 #if TS_MODEL == TS_MODEL_FT6X36
     store.xTouchMirroring = false;
@@ -2085,6 +2090,7 @@ void Config::bootInfo() {
     BOOTLOG("fadeTarget    : %4s", fmtThousands(store.fadeTarget));
     BOOTLOG("fadeStep      : %4s", fmtThousands(store.fadeStep));
     BOOTLOG("Serial LittleFS : %s", store.serialLittlefsEnabled ? "true" : "false");
+    BOOTLOG("HTTP FS manager: %s", store.httpFsManagerEnabled ? "true" : "false");
     BOOTLOG("------------------------------------------------");
     BOOTLOG("----------------- HEAP AND PSRAM ---------------");
     BOOTLOG("Total heap : %10s byte", fmtThousands(ESP.getHeapSize()));

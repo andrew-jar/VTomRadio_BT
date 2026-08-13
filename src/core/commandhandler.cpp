@@ -358,6 +358,12 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
         netserver.requestOnChange(GETSYSTEM, cid);
         return true;
     }
+    if (strEquals(command, "httpfsmanager")) {
+        config.saveValue(&config.store.httpFsManagerEnabled, static_cast<bool>(atoi(value)), true, false);
+        delay(100);
+        netserver.requestOnChange(GETSYSTEM, cid);
+        return true;
+    }
     if (strEquals(command, "nameday")) {                                         // "nameday"  itt veszi át a webről a toggle értékét.
         display.putRequest(CLEARALLBITRATE);                                     // Törli mindkét bitratewidget és a nameday területet.
         config.saveValue(&config.store.nameday, static_cast<bool>(atoi(value))); // Elmenti a gomb beállítását
