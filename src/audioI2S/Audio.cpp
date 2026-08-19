@@ -2145,6 +2145,11 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
             m_controlCounter = MP3_XING;
             return 0;
         }
+        if (len < 4) {
+            AUDIO_LOG_WARN("ID3 frame header truncated, available {}, need >=4 bytes", len);
+            m_controlCounter = MP3_XING;
+            return 0;
+        }
         m_controlCounter = MP3_FRAMESIZE;
         m_ID3Hdr.frameid[0] = *(data + 0);
         m_ID3Hdr.frameid[1] = *(data + 1);
@@ -2161,6 +2166,11 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
     }
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if (m_controlCounter == MP3_FRAMESIZE) { // get the frame size
+        if (len < 6) {
+            AUDIO_LOG_WARN("ID3 frame size fields truncated, available {}, need >=6 bytes", len);
+            m_controlCounter = MP3_XING;
+            return 0;
+        }
         m_controlCounter = MP3_TAG;
 
         if (m_ID3Hdr.ID3version == 4) {
@@ -2199,6 +2209,10 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
     }
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if (m_controlCounter == MP3_TAG) { // Read the value
+        if (len == 0) {
+            m_controlCounter = MP3_XING;
+            return 0;
+        }
         m_controlCounter = MP3_SKIP;   // only read 256 bytes
 
         uint8_t textEncodingByte = *(data + 0); // ID3v2 Text-Encoding-Byte
@@ -2232,6 +2246,12 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
         }
 
         if (m_ID3Hdr.framesize == 0) return 0;
+        if (m_ID3Hdr.framesize > len) {
+            AUDIO_LOG_WARN("ID3 frame exceeds current buffer, tag={}, frame_size={}, buffer_len={}", m_ID3Hdr.tag, m_ID3Hdr.framesize, len);
+            m_ID3Hdr.framesize -= len;
+            m_ID3Hdr.remainingHeaderBytes -= len;
+            return len;
+        }
 
         ps_ptr<char> tmp;
         tmp.set_name("tmp");
@@ -2305,11 +2325,13 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
             ps_ptr<char> content_descriptor;
             ps_ptr<char> syltBuff;
             bool         isBigEndian = true;
-            size_t       len = 0;
             int          idx = 0;
             m_ID3Hdr.SYLT.pos = m_ID3Hdr.id3Size - m_ID3Hdr.remainingHeaderBytes;
             m_ID3Hdr.SYLT.size = m_ID3Hdr.framesize;
-            if (m_ID3Hdr.SYLT.size < len) return 0;
+            if (m_ID3Hdr.SYLT.size == 0 || m_ID3Hdr.SYLT.size > len) {
+                AUDIO_LOG_WARN("SYLT frame incomplete or truncated, size {}, available {}", m_ID3Hdr.SYLT.size, len);
+                return 0;
+            }
             syltBuff.copy_from(data, m_ID3Hdr.SYLT.size);
             m_ID3Hdr.SYLT.text_encoding = syltBuff[0]; // 0=ISO-8859-1, 1=UTF-16, 2=UTF-16BE, 3=UTF-8
             if (m_ID3Hdr.SYLT.text_encoding == 1) isBigEndian = false;
@@ -2380,6 +2402,11 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
             m_controlCounter = MP3_LASTFRAMES;
             return 0;
         }
+        if (len < 7) {
+            AUDIO_LOG_WARN("ID3v2.2 frame header truncated, available {} bytes, need >=7", len);
+            m_controlCounter = MP3_LASTFRAMES;
+            return 0;
+        }
 
         ps_ptr<char> tag;
         tag.set_name("tag");
@@ -2408,12 +2435,14 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
                 ps_ptr<char> content_descriptor;
                 ps_ptr<char> syltBuff;
                 bool         isBigEndian = true;
-                size_t       len = 0;
                 int          idx = 0;
 
                 m_ID3Hdr.SYLT.pos = m_ID3Hdr.id3Size - m_ID3Hdr.remainingHeaderBytes;
                 m_ID3Hdr.SYLT.size = m_ID3Hdr.v22_tag_length;
-                if (m_ID3Hdr.SYLT.size < len) return 0;
+                if (m_ID3Hdr.SYLT.size == 0 || m_ID3Hdr.SYLT.size > len) {
+                    AUDIO_LOG_WARN("V2.2 SYLT frame incomplete or truncated, size {}, available {}", m_ID3Hdr.SYLT.size, len);
+                    return 0;
+                }
                 syltBuff.copy_from(data, m_ID3Hdr.SYLT.size);
                 m_ID3Hdr.SYLT.text_encoding = syltBuff[0];
                 memcpy(m_ID3Hdr.SYLT.lang, syltBuff.get() + 1, 3);
@@ -2424,13 +2453,14 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
 
                 idx = 6;
 
+                size_t descriptor_len = 0;
                 if (m_ID3Hdr.SYLT.text_encoding == 0 || m_ID3Hdr.SYLT.text_encoding == 3) { // utf-8
-                    len = content_descriptor.copy_from(syltBuff.get() + idx);
+                    descriptor_len = content_descriptor.copy_from(syltBuff.get() + idx);
                 } else { // utf-16
-                    len = content_descriptor.copy_from_utf16(syltBuff.get() + idx, isBigEndian);
+                    descriptor_len = content_descriptor.copy_from_utf16(syltBuff.get() + idx, isBigEndian);
                 }
-                if (len > 2) info(*this, evt_info, "Lyrics: content_descriptor: {}", content_descriptor.c_get());
-                idx += len;
+                if (descriptor_len > 2) info(*this, evt_info, "Lyrics: content_descriptor: {}", content_descriptor.c_get());
+                idx += descriptor_len;
 
                 while (idx < m_ID3Hdr.SYLT.size) {
                     // UTF-16LE, UTF-16BE
@@ -4478,7 +4508,7 @@ void Audio::processWebStream() {
         m_metacount = m_metaint;
         return;
     }
-    if (m_metaint) m_pwst.writeSpace = min(m_pwst.writeSpace, m_metacount);
+    if (m_metaint && m_metacount > 0) m_pwst.writeSpace = min(m_pwst.writeSpace, m_metacount);
 
     // buffer fill routine - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if (m_pwst.availableBytes) {
@@ -4487,7 +4517,13 @@ void Audio::processWebStream() {
 
         if (bytesAddedToBuffer > 0) {
             m_pwst.writeSpace -= bytesAddedToBuffer;
-            if (m_metaint) m_metacount -= bytesAddedToBuffer;
+            if (m_metaint) {
+                if ((uint32_t)bytesAddedToBuffer >= m_metacount) {
+                    m_metacount = 0;
+                } else {
+                    m_metacount -= bytesAddedToBuffer;
+                }
+            }
             if (m_f_chunked) m_pwst.chunkSize -= bytesAddedToBuffer;
             InBuff.bytesWritten(bytesAddedToBuffer);
         }
@@ -5005,7 +5041,14 @@ bool Audio::parseHttpResponseHeader() { // this is the response to a GET / reque
     uint16_t pos = 0;
 
     while (true) { // read the header first and store it in m_httpRespHdrBuff
-        if (m_client->available()) { m_httpRespHdrBuff[pos++] = audioFileRead(); }
+        if (m_client->available()) {
+            if (pos >= m_httpRespHdrBuff.size()) {
+                AUDIO_LOG_WARN("responseHeaderline overflow");
+                m_httpRespHdrBuff[m_httpRespHdrBuff.size() - 1] = '\0';
+                break;
+            }
+            m_httpRespHdrBuff[pos++] = audioFileRead();
+        }
         if (m_httpRespHdrBuff.ends_with("\r\n\r\n")) break;
         if (m_httpRespHdrBuff.ends_with("\n\n")) break;
         if (pos == m_httpRespHdrBuff.size()) {
@@ -5088,22 +5131,24 @@ bool Audio::parseHttpResponseHeader() { // this is the response to a GET / reque
         } // —— END ICY BLOCK —————————————————————————————————————————————————————————————————————————————————————————
 
         if (rhl.starts_with_icase("HTTP/")) { // HTTP status error code
-            char statusCode[5];
-            statusCode[0] = rhl[9];
-            statusCode[1] = rhl[10];
-            statusCode[2] = rhl[11];
-            statusCode[3] = '\0';
-            int sc = atoi(statusCode);
-            if (sc == 403 && !m_f_alt_user_agent) { // HTTP/1.1 403 Forbidden
-                m_f_alt_user_agent = true;
-                AUDIO_LOG_WARN("403 Forbidden, test alternative user agent");
-                connecttohost(m_lastHost.c_get());
-                return true;
-            }
-            m_f_alt_user_agent = false;
-            if (sc > 310) { // e.g. HTTP/1.1 301 Moved Permanently
-                info(*this, evt_streamtitle, "{}", rhl.get());
-                goto exit;
+            if (rhl.strlen() >= 12) {
+                char statusCode[5];
+                statusCode[0] = rhl[9];
+                statusCode[1] = rhl[10];
+                statusCode[2] = rhl[11];
+                statusCode[3] = '\0';
+                int sc = atoi(statusCode);
+                if (sc == 403 && !m_f_alt_user_agent) { // HTTP/1.1 403 Forbidden
+                    m_f_alt_user_agent = true;
+                    AUDIO_LOG_WARN("403 Forbidden, test alternative user agent");
+                    connecttohost(m_lastHost.c_get());
+                    return true;
+                }
+                m_f_alt_user_agent = false;
+                if (sc > 310) { // e.g. HTTP/1.1 301 Moved Permanently
+                    info(*this, evt_streamtitle, "{}", rhl.get());
+                    goto exit;
+                }
             }
         } else if (rhl.starts_with_icase("content-type:")) { // content-type: text/html; charset=UTF-8
             int idx = rhl.index_of(';', 13);
@@ -7205,6 +7250,10 @@ bool Audio::ts_parsePacket(uint8_t* packet, uint8_t* packetStart, uint8_t* packe
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————-
 bool Audio::readMetadata(uint32_t maxBytes, uint16_t* readedBytes, bool first) {
     *readedBytes = 0;
+    if (m_metadataBuff.size() < 2) {
+        AUDIO_LOG_ERROR("ICY metadata buffer is unavailable");
+        return false;
+    }
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if (first) {
         m_rmet.pos_ml = 0; // determines the current position in metaline
@@ -7223,13 +7272,30 @@ bool Audio::readMetadata(uint32_t maxBytes, uint16_t* readedBytes, bool first) {
         }
         m_rmet.metaDataSize = b * 16; // New count for metadata including length byte, max 4096
         m_rmet.pos_ml = 0;
+        if (m_rmet.metaDataSize > (m_metadataBuff.size() - 1)) {
+            AUDIO_LOG_WARN("ICY metadata size {} exceeds buffer {} bytes, clamping", m_rmet.metaDataSize, m_metadataBuff.size() - 1);
+            m_rmet.metaDataSize = m_metadataBuff.size() - 1;
+        }
         m_metadataBuff[m_rmet.pos_ml] = 0; // Prepare for new line
         *readedBytes = 1;
         maxBytes -= 1;
     }
     if (!m_rmet.metaDataSize) { return *readedBytes; } // metalen is 0
+    if (m_rmet.pos_ml >= m_rmet.metaDataSize) {
+        AUDIO_LOG_WARN("ICY metadata position {} past end {}, resetting", m_rmet.pos_ml, m_rmet.metaDataSize);
+        m_rmet.metaDataSize = 0;
+        m_rmet.pos_ml = 0;
+        m_metadataBuff.clear();
+        return true;
+    }
 
-    int32_t a = audioFileRead((uint8_t*)&m_metadataBuff[m_rmet.pos_ml], min(m_rmet.metaDataSize - m_rmet.pos_ml, maxBytes));
+    size_t bytesToRead = min((size_t)(m_rmet.metaDataSize - m_rmet.pos_ml), (size_t)maxBytes);
+    if (bytesToRead == 0) { return false; }
+    if ((m_rmet.pos_ml + bytesToRead) > (m_metadataBuff.size() - 1)) {
+        bytesToRead = (m_metadataBuff.size() - 1) - m_rmet.pos_ml;
+    }
+
+    int32_t a = audioFileRead((uint8_t*)&m_metadataBuff[m_rmet.pos_ml], bytesToRead);
     if (a > 0) {
         m_rmet.res += a;
         *readedBytes += a;
