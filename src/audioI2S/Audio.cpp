@@ -630,6 +630,7 @@ void Audio::setDefaults() {
 
     m_audioCurrentTime = 0;
     m_audioFileDuration = 0;
+    m_totalSamplesInFile = 0;
     m_resumeFilePos = -1;
     m_audioDataStart = 0;
     m_audioDataSize = 0;
@@ -2565,12 +2566,61 @@ int Audio::read_ID3_Header(uint8_t* data, size_t len) {
                 AUDIO_LOG_DEBUG("frames {}", frames);
                 uint32_t bytes = bigEndian(data + xingPos + 12, 4);
                 AUDIO_LOG_DEBUG("bytes {}", bytes);
-                uint32_t duration = frames * spf / samplerate;
+                uint32_t duration = samplerate > 0 ? (frames * spf / samplerate) : 0;
                 info(*this, evt_info, "Duration (s): {}", duration);
                 m_audioFileDuration = duration;
-                uint32_t bitrate = bytes * 8 / duration;
-                info(*this, evt_info, "Bitrate (b/s): {}", bitrate);
-                m_nominal_bitrate = bitrate;
+                m_totalSamplesInFile = static_cast<uint64_t>(frames) * spf;
+                if (duration > 0) {
+                    uint32_t bitrate = (static_cast<uint64_t>(bytes) * 8) / duration;
+                    info(*this, evt_info, "Bitrate (b/s): {}", bitrate);
+                    m_nominal_bitrate = bitrate;
+                }
+            }
+
+            if (m_nominal_bitrate == 0 && layerIndex == 1 && samplerate > 0) {
+                static constexpr uint16_t mpeg1Bitrates[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
+                static constexpr uint16_t mpeg2Bitrates[] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160};
+                uint64_t totalBytes = 0;
+                uint64_t totalSamples = 0;
+                size_t pos = 0;
+                uint32_t frameCount = 0;
+
+                while (pos + 4 <= len) {
+                    uint32_t frameHeader = bigEndian(data + pos, 4);
+                    if ((frameHeader & 0xFFE00000) != 0xFFE00000) break;
+
+                    int version = (frameHeader >> 19) & 0x3;
+                    int layer = (frameHeader >> 17) & 0x3;
+                    int bitrateIndex = (frameHeader >> 12) & 0xF;
+                    int sampleRateIndex = (frameHeader >> 10) & 0x3;
+                    int padding = (frameHeader >> 9) & 0x1;
+                    if (version == 1 || layer != 1 || bitrateIndex == 0 || bitrateIndex == 15 || sampleRateIndex == 3) break;
+
+                    int frameSampleRate = samplerate_table[version][sampleRateIndex];
+                    int frameSamples = samples_per_frame[version][layer];
+                    if (frameSampleRate <= 0 || frameSamples <= 0) break;
+
+                    uint32_t bitrate = version == 3 ? mpeg1Bitrates[bitrateIndex] : mpeg2Bitrates[bitrateIndex];
+                    uint32_t frameSize = version == 3
+                                             ? (144000ULL * bitrate) / frameSampleRate + padding
+                                             : (72000ULL * bitrate) / frameSampleRate + padding;
+                    if (frameSize < 4 || pos + frameSize > len) break;
+
+                    totalBytes += frameSize;
+                    totalSamples += frameSamples;
+                    frameCount++;
+                    pos += frameSize;
+                }
+
+                if (frameCount > 0 && totalSamples > 0) {
+                    m_nominal_bitrate = (totalBytes * 8ULL * samplerate) / totalSamples;
+                    if (m_nominal_bitrate > 0) {
+                        m_audioFileDuration = (static_cast<uint64_t>(m_audioDataSize) * 8ULL) / m_nominal_bitrate;
+                        m_totalSamplesInFile = static_cast<uint64_t>(m_audioFileDuration) * samplerate;
+                        AUDIO_LOG_DEBUG("MP3 frame analysis: {} frames, {} bytes, bitrate {} bit/s, duration {} s",
+                                        frameCount, totalBytes, m_nominal_bitrate, m_audioFileDuration);
+                    }
+                }
             }
 
             if (m_ID3Hdr.APIC_vec.size()) { // if we have a APIC
@@ -6049,6 +6099,8 @@ void Audio::calculateAudioTime(uint16_t bytesDecoderIn, uint16_t samples_decoder
             m_audioFileDuration = round(((float)m_audioDataSize * 8 / m_cat.nominalBitRate));
             if (m_lastGranulePosition)
                 m_cat.tota_samples = m_lastGranulePosition;
+            else if (m_totalSamplesInFile > 0)
+                m_cat.tota_samples = m_totalSamplesInFile > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(m_totalSamplesInFile);
             else
                 m_cat.tota_samples = m_audioFileDuration * m_i2s_items.sampleRate;
         }

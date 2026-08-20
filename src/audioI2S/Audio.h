@@ -603,6 +603,7 @@ class Audio {
     bool           m_f_connectionClose = false;     // set in parseHttpResponseHeader
     bool           m_f_i2s_channel_enabled = false; // true if enabled
     uint32_t       m_audioFileDuration = 0;         // seconds
+    uint64_t       m_totalSamplesInFile = 0;        // decoded samples in the file
     uint32_t       m_audioCurrentTime = 0;          // seconds
     uint32_t       m_audioDataStart = 0;            // in bytes
     OutputSR_t     m_output_sr = SR_ORIGIN;         // output samplerate
