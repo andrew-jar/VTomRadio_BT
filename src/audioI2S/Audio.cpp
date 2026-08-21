@@ -6991,6 +6991,18 @@ void Audio::processSpectrum() {
     //    m_fft_items.spectrum[3]);
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+void Audio::fadeOutSpectrum() {
+    if (!settings.SPECTRUM || !m_fft_items.initialized || !m_fft_items.buffer.valid()) return;
+
+    constexpr uint16_t ZERO_SAMPLES_PER_TICK = 32;
+    for (uint16_t sample = 0; sample < ZERO_SAMPLES_PER_TICK; sample++) {
+        m_fft_items.buffer[m_fft_items.buffer_index] = 0.0f;
+        m_fft_items.buffer_index++;
+        if (m_fft_items.buffer_index == m_fft_items.SIZE) m_fft_items.buffer_index = 0;
+    }
+    processSpectrum();
+}
+// —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 void Audio::Gain(int32_t* sample) {
     /* important: these multiplications must all be signed ints, or the result will be invalid */
     int32_t* s32 = (int32_t*)sample;
@@ -8184,6 +8196,7 @@ void Audio::performAudioTask() {
     } else {
         int32_t c[2] = {0};
         calculateVUlevel(c);
+        fadeOutSpectrum();
         gain_ramp();
         vTaskDelay(20);
         return;
