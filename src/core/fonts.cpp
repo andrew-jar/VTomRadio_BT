@@ -27,6 +27,14 @@ static uint8_t* font_vlw_clock_calibri = nullptr;
 static uint8_t* font_vlw_clock_sec_calibri = nullptr;
 static uint8_t* font_vlw_clock_android = nullptr;
 static uint8_t* font_vlw_clock_sec_android = nullptr;
+static uint8_t* font_vlw_clock_oldtimer = nullptr;
+static uint8_t* font_vlw_clock_sec_oldtimer = nullptr;
+static uint8_t* font_vlw_clock_laradot = nullptr;
+static uint8_t* font_vlw_clock_sec_laradot = nullptr;
+static uint8_t* font_vlw_clock_decoderr = nullptr;
+static uint8_t* font_vlw_clock_sec_decoderr = nullptr;
+static uint8_t* font_vlw_clock_squarefont = nullptr;
+static uint8_t* font_vlw_clock_sec_squarefont = nullptr;
 
 // ================= GFX FONTOK =================
 using namespace lgfx::v1::fonts;
@@ -123,6 +131,14 @@ bool loadFonts() {
     font_vlw_clock_sec_calibri = loadFontFile("/fonts/calibri_47.vlw");
     font_vlw_clock_android = loadFontFile("/fonts/androidclock_89.vlw");
     font_vlw_clock_sec_android = loadFontFile("/fonts/androidclock_44.vlw");
+    font_vlw_clock_oldtimer = loadFontFile("/fonts/oldtimer.vlw");
+    font_vlw_clock_sec_oldtimer = loadFontFile("/fonts/oldtimer_sec.vlw");
+    font_vlw_clock_laradot = loadFontFile("/fonts/laradotserif.vlw");
+    font_vlw_clock_sec_laradot = loadFontFile("/fonts/laradotserif_sec.vlw");
+    font_vlw_clock_decoderr = loadFontFile("/fonts/decoderr.vlw");
+    font_vlw_clock_sec_decoderr = loadFontFile("/fonts/decoderr_sec.vlw");
+    font_vlw_clock_squarefont = loadFontFile("/fonts/squarefont.vlw");
+    font_vlw_clock_sec_squarefont = loadFontFile("/fonts/squarefont_sec.vlw");
 #elif DSP_MODEL == DSP_SSD1322
 
 #endif
@@ -138,16 +154,11 @@ bool loadFonts() {
 }
 
 void setClockFontStyle(uint8_t style) {
-    if (style == CLOCKFONT_STYLE_CALIBRI) {
-        font_vlw_clock = font_vlw_clock_calibri;
-        font_vlw_clock_sec = font_vlw_clock_sec_calibri;
-    } else if (style == CLOCKFONT_STYLE_ANDROIDCLOCK) {
-        font_vlw_clock = font_vlw_clock_android;
-        font_vlw_clock_sec = font_vlw_clock_sec_android;
-    } else {
-        font_vlw_clock = font_vlw_clock_digi;
-        font_vlw_clock_sec = font_vlw_clock_sec_digi;
-    }
+    uint8_t* mainFont = nullptr;
+    uint8_t* secFont = nullptr;
+    getClockFontStylePointers(style, &mainFont, &secFont);
+    font_vlw_clock = mainFont ? mainFont : font_vlw_clock_digi;
+    font_vlw_clock_sec = secFont ? secFont : font_vlw_clock_sec_digi;
 }
 
 void getClockFontStylePointers(uint8_t style, uint8_t** mainFont, uint8_t** secFont) {
@@ -156,6 +167,14 @@ void getClockFontStylePointers(uint8_t style, uint8_t** mainFont, uint8_t** secF
             *mainFont = font_vlw_clock_calibri;
         else if (style == CLOCKFONT_STYLE_ANDROIDCLOCK)
             *mainFont = font_vlw_clock_android;
+        else if (style == CLOCKFONT_STYLE_OLDTIMER)
+            *mainFont = font_vlw_clock_oldtimer;
+        else if (style == CLOCKFONT_STYLE_LARADOT)
+            *mainFont = font_vlw_clock_laradot;
+        else if (style == CLOCKFONT_STYLE_DECODERR)
+            *mainFont = font_vlw_clock_decoderr;
+        else if (style == CLOCKFONT_STYLE_SQUAREFONT)
+            *mainFont = font_vlw_clock_squarefont;
         else
             *mainFont = font_vlw_clock_digi;
     }
@@ -164,6 +183,14 @@ void getClockFontStylePointers(uint8_t style, uint8_t** mainFont, uint8_t** secF
             *secFont = font_vlw_clock_sec_calibri;
         else if (style == CLOCKFONT_STYLE_ANDROIDCLOCK)
             *secFont = font_vlw_clock_sec_android;
+        else if (style == CLOCKFONT_STYLE_OLDTIMER)
+            *secFont = font_vlw_clock_sec_oldtimer;
+        else if (style == CLOCKFONT_STYLE_LARADOT)
+            *secFont = font_vlw_clock_sec_laradot;
+        else if (style == CLOCKFONT_STYLE_DECODERR)
+            *secFont = font_vlw_clock_sec_decoderr;
+        else if (style == CLOCKFONT_STYLE_SQUAREFONT)
+            *secFont = font_vlw_clock_sec_squarefont;
         else
             *secFont = font_vlw_clock_sec_digi;
     }
@@ -239,6 +266,14 @@ void freeFonts() {
         free(font_vlw_clock_sec_android);
         font_vlw_clock_sec_android = nullptr;
     }
+    if (font_vlw_clock_oldtimer) { free(font_vlw_clock_oldtimer); font_vlw_clock_oldtimer = nullptr; }
+    if (font_vlw_clock_sec_oldtimer) { free(font_vlw_clock_sec_oldtimer); font_vlw_clock_sec_oldtimer = nullptr; }
+    if (font_vlw_clock_laradot) { free(font_vlw_clock_laradot); font_vlw_clock_laradot = nullptr; }
+    if (font_vlw_clock_sec_laradot) { free(font_vlw_clock_sec_laradot); font_vlw_clock_sec_laradot = nullptr; }
+    if (font_vlw_clock_decoderr) { free(font_vlw_clock_decoderr); font_vlw_clock_decoderr = nullptr; }
+    if (font_vlw_clock_sec_decoderr) { free(font_vlw_clock_sec_decoderr); font_vlw_clock_sec_decoderr = nullptr; }
+    if (font_vlw_clock_squarefont) { free(font_vlw_clock_squarefont); font_vlw_clock_squarefont = nullptr; }
+    if (font_vlw_clock_sec_squarefont) { free(font_vlw_clock_sec_squarefont); font_vlw_clock_sec_squarefont = nullptr; }
 
     font_vlw_clock = nullptr;
     font_vlw_clock_sec = nullptr;
