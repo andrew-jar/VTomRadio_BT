@@ -6882,6 +6882,8 @@ void Audio::calculateVolumeLimits() { // is calculated when the volume or balanc
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 void Audio::processSpectrum() {
 
+    m_fft_items.is_down = false;
+
     // --- 10 Hz update ---
     uint32_t now = millis();
     if (now - m_fft_items.last_ms < 100) return;
@@ -6943,6 +6945,7 @@ void Audio::processSpectrum() {
     }
 
     // --- RMS + weighting ---
+    uint16_t visibleLevels = 0;
     for (int i = 0; i < m_fft_items.BANDS; i++) {
         if (bins[i])
             band[i] = sqrtf(band[i] / bins[i]);
@@ -6986,13 +6989,15 @@ void Audio::processSpectrum() {
         float norm = (db - DB_MIN) / (DB_MAX - DB_MIN);
 
         m_fft_items.spectrum[i] = (uint8_t)(norm * 255.0f);
+        visibleLevels += m_fft_items.spectrum[i];
     }
+    m_fft_items.is_down = visibleLevels == 0;
     //    AUDIO_LOG_INFO("{:4}, {:4}, {:4}, {:4}, {:4}, {:4} ", m_fft_items.spectrum[0], m_fft_items.spectrum[1],  m_fft_items.spectrum[2],  m_fft_items.spectrum[3],  m_fft_items.spectrum[4],
     //    m_fft_items.spectrum[3]);
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 void Audio::fadeOutSpectrum() {
-    if (!settings.SPECTRUM || !m_fft_items.initialized || !m_fft_items.buffer.valid()) return;
+    if (!settings.SPECTRUM || m_fft_items.is_down || !m_fft_items.initialized || !m_fft_items.buffer.valid()) return;
 
     constexpr uint16_t ZERO_SAMPLES_PER_TICK = 32;
     for (uint16_t sample = 0; sample < ZERO_SAMPLES_PER_TICK; sample++) {

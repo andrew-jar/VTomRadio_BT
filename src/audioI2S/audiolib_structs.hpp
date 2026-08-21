@@ -387,6 +387,7 @@ struct fft_items_t {
     uint32_t       last_ms = 0;                  // timing (10 Hz)
     float          gain = 1.0f;                  // AGC in process()
     bool           lr_switch = false;            // start/stop
+    bool           is_down = false;              // all displayed spectrum levels are zero
     ps_ptr<float>  work;                         // FFT work buffer (complex interleaved)
     uint8_t        spectrum[FFT_BANDS] = {0};    // output
 };

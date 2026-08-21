@@ -109,21 +109,41 @@ void ClockWidget::_calcSize() {
     uint8_t* calSec = nullptr;
     uint8_t* androidMain = nullptr;
     uint8_t* androidSec = nullptr;
+    uint8_t* oldtimerMain = nullptr;
+    uint8_t* oldtimerSec = nullptr;
+    uint8_t* laradotMain = nullptr;
+    uint8_t* laradotSec = nullptr;
+    uint8_t* decoderrMain = nullptr;
+    uint8_t* decoderrSec = nullptr;
+    uint8_t* squarefontMain = nullptr;
+    uint8_t* squarefontSec = nullptr;
     getClockFontStylePointers(CLOCKFONT_STYLE_DIGI7, &digiMain, &digiSec);
     getClockFontStylePointers(CLOCKFONT_STYLE_CALIBRI, &calMain, &calSec);
     getClockFontStylePointers(CLOCKFONT_STYLE_ANDROIDCLOCK, &androidMain, &androidSec);
+    getClockFontStylePointers(CLOCKFONT_STYLE_OLDTIMER, &oldtimerMain, &oldtimerSec);
+    getClockFontStylePointers(CLOCKFONT_STYLE_LARADOT, &laradotMain, &laradotSec);
+    getClockFontStylePointers(CLOCKFONT_STYLE_DECODERR, &decoderrMain, &decoderrSec);
+    getClockFontStylePointers(CLOCKFONT_STYLE_SQUAREFONT, &squarefontMain, &squarefontSec);
 
     uint16_t wTimeDigi = 0, hTimeDigi = 0, wSecDigi = 0, hSecDigi = 0;
     uint16_t wTimeCalibri = 0, hTimeCalibri = 0, wSecCalibri = 0, hSecCalibri = 0;
     uint16_t wTimeAndroid = 0, hTimeAndroid = 0, wSecAndroid = 0, hSecAndroid = 0;
+    uint16_t wTimeOldtimer = 0, hTimeOldtimer = 0, wSecOldtimer = 0, hSecOldtimer = 0;
+    uint16_t wTimeLaradot = 0, hTimeLaradot = 0, wSecLaradot = 0, hSecLaradot = 0;
+    uint16_t wTimeDecoderr = 0, hTimeDecoderr = 0, wSecDecoderr = 0, hSecDecoderr = 0;
+    uint16_t wTimeSquarefont = 0, hTimeSquarefont = 0, wSecSquarefont = 0, hSecSquarefont = 0;
     measureClockStyle(digiMain, digiSec, wTimeDigi, hTimeDigi, wSecDigi, hSecDigi);
     measureClockStyle(calMain, calSec, wTimeCalibri, hTimeCalibri, wSecCalibri, hSecCalibri);
     measureClockStyle(androidMain, androidSec, wTimeAndroid, hTimeAndroid, wSecAndroid, hSecAndroid);
+    measureClockStyle(oldtimerMain, oldtimerSec, wTimeOldtimer, hTimeOldtimer, wSecOldtimer, hSecOldtimer);
+    measureClockStyle(laradotMain, laradotSec, wTimeLaradot, hTimeLaradot, wSecLaradot, hSecLaradot);
+    measureClockStyle(decoderrMain, decoderrSec, wTimeDecoderr, hTimeDecoderr, wSecDecoderr, hSecDecoderr);
+    measureClockStyle(squarefontMain, squarefontSec, wTimeSquarefont, hTimeSquarefont, wSecSquarefont, hSecSquarefont);
 
-    uint16_t w_time = max<uint16_t>(max<uint16_t>(wTimeDigi, wTimeCalibri), wTimeAndroid);
-    uint16_t h_time = max<uint16_t>(max<uint16_t>(hTimeDigi, hTimeCalibri), hTimeAndroid);
-    uint16_t w_sec = max<uint16_t>(max<uint16_t>(wSecDigi, wSecCalibri), wSecAndroid);
-    _secHeight = max<uint16_t>(hSecDigi, hSecCalibri);
+    uint16_t w_time = max<uint16_t>({wTimeDigi, wTimeCalibri, wTimeAndroid, wTimeOldtimer, wTimeLaradot, wTimeDecoderr, wTimeSquarefont});
+    uint16_t h_time = max<uint16_t>({hTimeDigi, hTimeCalibri, hTimeAndroid, hTimeOldtimer, hTimeLaradot, hTimeDecoderr, hTimeSquarefont});
+    uint16_t w_sec = max<uint16_t>({wSecDigi, wSecCalibri, wSecAndroid, wSecOldtimer, wSecLaradot, wSecDecoderr, wSecSquarefont});
+    _secHeight = max<uint16_t>({hSecDigi, hSecCalibri, hSecAndroid, hSecOldtimer, hSecLaradot, hSecDecoderr, hSecSquarefont});
 
     uint16_t w_right = w_sec;
 
