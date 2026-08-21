@@ -84,7 +84,7 @@ const char       bootstrFmt[]    PROGMEM = "Connecting %s";
 const char        apSettFmt[]    PROGMEM = "SETTINGS PAGE ON: HTTP://%s/";
 // clang-format on
 #ifdef WEATHER_FMT_SHORT
-const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH";
+const char weatherFmt[] PROGMEM = "%.1f°C  \007  %d hPa  \007  %d%% RH  \007  %.1f m/s";
 #else
   #if EXT_WEATHER
     #ifdef WIND_SPEED_IN_KMH
