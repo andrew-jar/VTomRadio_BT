@@ -339,6 +339,7 @@ class Audio {
     void                     playChunk();
     void                     calculateVUlevel(int32_t* sample);
     void                     processSpectrum();
+    void                     fadeOutSpectrum();
     void                     gain_ramp();
     void                     calculateVolumeLimits();
     void                     Gain(int32_t* sample);
