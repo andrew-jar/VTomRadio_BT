@@ -8,7 +8,7 @@
 
 #ifdef NAMEDAYS_FILE
 namespace {
-constexpr int16_t NAMEDAY_Y_OFFSET = 20;
+constexpr int16_t NAMEDAY_Y_OFFSET = 19;
 }
 
 NamedayWidget::~NamedayWidget() {

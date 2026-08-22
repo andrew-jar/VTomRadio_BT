@@ -2,11 +2,10 @@
 
 #include <LovyanGFX.hpp>
 
-// Default panel invert = true (required by ILI9488/ST7796).
-// Override to false in the display header before including this file
-// for panels that do not need hardware-level colour inversion (e.g. ILI9341).
+// Keep the hardware panel neutral by default and let the saved user setting
+// be the single source of truth for display inversion.
 #ifndef LGFX_PANEL_INVERT
-#  define LGFX_PANEL_INVERT true
+#  define LGFX_PANEL_INVERT false
 #endif
 
 #include "../../core/options.h"
