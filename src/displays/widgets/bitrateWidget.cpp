@@ -213,13 +213,18 @@ void BitrateWidget::_draw() {
         _spr->drawString(_buf, bitrateX, line1Y);
 
         char infoBuf[24];
-        if (_sampleRateHz > 0 && _bitDepth > 0) {
+        if (_sampleRateHz > 0) {
             const uint32_t khzX10 = _sampleRateHz / 100;
             const unsigned long srWhole = static_cast<unsigned long>(khzX10 / 10);
             const unsigned long srFrac = static_cast<unsigned long>(khzX10 % 10);
-            snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz | %ubit", srWhole, srFrac, static_cast<unsigned>(_bitDepth));
+            const bool hasSourceBitDepth = (_format == BF_FLAC || _format == BF_WAV) && _bitDepth > 0;
+            if (hasSourceBitDepth) {
+                snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz | %ubit", srWhole, srFrac, static_cast<unsigned>(_bitDepth));
+            } else {
+                snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz", srWhole, srFrac);
+            }
         } else {
-            snprintf(infoBuf, sizeof(infoBuf), "--kHz | --bit");
+            snprintf(infoBuf, sizeof(infoBuf), "--kHz");
         }
 
         if (!_applyFont(line1Size)) {
