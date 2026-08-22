@@ -24,7 +24,8 @@ void DspCore::initDisplay() {
     setTextWrap(false);
     setTextSize(1);
     fillScreen(0x0000);
-    invert();
+    invertDisplay(false);
+    if (config.store.invertdisplay) { invertDisplay(true); }
     flip();
 }
 
