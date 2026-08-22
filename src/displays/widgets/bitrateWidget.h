@@ -19,8 +19,10 @@ class BitrateWidget : public Widget {
     using Widget::init;
 
     void init(BitrateBoxConfig boxconf, uint16_t fgcolor, uint16_t bgcolor);
-    void setBitrate(uint16_t bitrate);
+    void setBitrate(uint32_t bitrate);
     void setFormat(BitrateFormat format);
+    void setSampleRate(uint32_t sampleRateHz);
+    void setBitDepth(uint8_t bitDepth);
     void clearAll();
 
   protected:
@@ -28,15 +30,17 @@ class BitrateWidget : public Widget {
 
     BitrateBoxConfig _box;
     BitrateFormat    _format;
-    uint16_t         _bitrate;
+    uint32_t         _bitrate;
+    uint32_t         _sampleRateHz;
+    uint8_t          _bitDepth;
     uint16_t         _dimension; // square esetén a négyzet oldalhossza, flat esetén a téglalap rövidebbik oldalának hossza
 
-    char _buf[8];
+    char _buf[16];
 
     bool _usingVlw = false;
 
     void _ensureSprite();
-    bool _applyFont();
+    bool _applyFont(uint8_t size = 0);
     bool _isFlat();
     void refresh();
 

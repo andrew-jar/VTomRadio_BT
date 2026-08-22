@@ -20,6 +20,8 @@ void BitrateWidget::init(BitrateBoxConfig boxconf, uint16_t fgcolor, uint16_t bg
 
     _bitrate = 0;
     _format = BF_UNKNOWN;
+    _sampleRateHz = 0;
+    _bitDepth = 0;
 
     memset(_buf, 0, sizeof(_buf));
 
@@ -35,7 +37,7 @@ void BitrateWidget::_ensureSprite() {
     bool flat = _isFlat();
 
     uint16_t w = flat ? _box.dimension * 2 : _box.dimension;
-    uint16_t h = flat ? _box.dimension / 2 : _box.dimension;
+    uint16_t h = flat ? _box.dimension : _box.dimension;
 
     if (_spr && (_spr->width() == w) && (_spr->height() == h)) return; // ha van srite és mérete is jó, nem csinál semmit
 
@@ -50,25 +52,31 @@ void BitrateWidget::_ensureSprite() {
     _spr->createSprite(w, h);
 }
 
-bool BitrateWidget::_applyFont() {
+bool BitrateWidget::_applyFont(uint8_t size) {
+    if (size == 0) size = _box.textsize;
+
     _usingVlw = false;
-    if (_box.textsize == 12 && font_vlw_12) {
+    if (size == 12 && font_vlw_12) {
         _spr->loadFont(font_vlw_12);
         _spr->setTextSize(1);
         _usingVlw = true;
-    } else if (_box.textsize == 14 && font_vlw_14) {
+    } else if (size == 14 && font_vlw_14) {
         _spr->loadFont(font_vlw_14);
         _spr->setTextSize(1);
         _usingVlw = true;
-    } else if (_box.textsize == 16 && font_vlw_16) {
+    } else if (size == 16 && font_vlw_16) {
         _spr->loadFont(font_vlw_16);
         _spr->setTextSize(1);
         _usingVlw = true;
-    } else if (_box.textsize == 20 && font_vlw_20) {
+    } else if (size == 18 && font_vlw_18) {
+        _spr->loadFont(font_vlw_18);
+        _spr->setTextSize(1);
+        _usingVlw = true;
+    } else if (size == 20 && font_vlw_20) {
         _spr->loadFont(font_vlw_20);
         _spr->setTextSize(1);
         _usingVlw = true;
-    } else if (_box.textsize == 22 && font_vlw_22) {
+    } else if (size == 22 && font_vlw_22) {
         _spr->loadFont(font_vlw_22);
         _spr->setTextSize(1);
         _usingVlw = true;
@@ -81,7 +89,7 @@ bool BitrateWidget::_applyFont() {
     return _usingVlw;
 }
 
-void BitrateWidget::setBitrate(uint16_t bitrate) {
+void BitrateWidget::setBitrate(uint32_t bitrate) {
     _bitrate = bitrate;
 
     if (_bitrate > 20000) { _bitrate /= 1000; }
@@ -91,6 +99,16 @@ void BitrateWidget::setBitrate(uint16_t bitrate) {
 
 void BitrateWidget::setFormat(BitrateFormat format) {
     _format = format;
+    _draw();
+}
+
+void BitrateWidget::setSampleRate(uint32_t sampleRateHz) {
+    _sampleRateHz = sampleRateHz;
+    _draw();
+}
+
+void BitrateWidget::setBitDepth(uint8_t bitDepth) {
+    _bitDepth = bitDepth;
     _draw();
 }
 
@@ -117,38 +135,13 @@ void BitrateWidget::_draw() {
     int h = _spr->height();
 
     // =====================
-    // KERET + HÁTTÉR
-    // =====================
-
-    if (_box.fill) {
-        if (_box.radius > 0) {
-            _spr->fillRoundRect(0, 0, w, h, _box.radius, _bgcolor);
-        } else {
-            _spr->fillRect(0, 0, w, h, _bgcolor);
-        }
-    }
-
-    if (_box.border > 0) {
-        for (uint8_t i = 0; i < _box.border; i++) {
-            if (_box.radius > 0) {
-                _spr->drawRoundRect(i, i, w - i * 2, h - i * 2, _box.radius, _fgcolor);
-            } else {
-                _spr->drawRect(i, i, w - i * 2, h - i * 2, _fgcolor);
-            }
-        }
-    }
-
-    // =====================
     // BITRATE STRING
     // =====================
 
     if (_bitrate == 0) {
-        snprintf(_buf, sizeof(_buf), "---");
-    } else if (_bitrate > 0 && _bitrate < 999) {
-        snprintf(_buf, sizeof(_buf), "%d", _bitrate);
+        snprintf(_buf, sizeof(_buf), "--- kbps");
     } else {
-        float br = (float)_bitrate / 1000;
-        snprintf(_buf, sizeof(_buf), "%.1f", br);
+        snprintf(_buf, sizeof(_buf), "%u kbps", static_cast<unsigned>(_bitrate));
     }
 
     const char* fmt = "";
@@ -163,14 +156,22 @@ void BitrateWidget::_draw() {
         default: fmt = "---"; break;
     }
 
-    _spr->setTextDatum(middle_center);
-
     /****** ELRENDEZÉS ******/
     if (!flat) {
+        _spr->setTextDatum(middle_center);
         // 🔲
         // Ha nem flat, akkor négyzetes elrendezés: bitrate fent, formátum lent
         _spr->setTextColor(_fgcolor, _bgcolor);
-        _spr->drawString(_buf, w / 2, h / 4);
+        char boxBr[16];
+        if (_bitrate == 0) {
+            snprintf(boxBr, sizeof(boxBr), "---");
+        } else if (_bitrate < 1000) {
+            snprintf(boxBr, sizeof(boxBr), "%u", static_cast<unsigned>(_bitrate));
+        } else {
+            const float br = static_cast<float>(_bitrate) / 1000.0f;
+            snprintf(boxBr, sizeof(boxBr), "%.1f", br);
+        }
+        _spr->drawString(boxBr, w / 2, h / 4);
         int halfH = h / 2;
         if (_box.radius > 0) {
             _spr->fillRoundRect(0, halfH, w, halfH, _box.radius, _fgcolor);
@@ -181,20 +182,52 @@ void BitrateWidget::_draw() {
         _spr->setTextColor(_bgcolor, _fgcolor);
         _spr->drawString(fmt, w / 2, (h * 3) / 4);
     } else {
-        // ▭ LAPOS
-        // Ha flat, akkor két részre osztott téglalap: bitrate balra, formátum jobbra
-        int halfW = w / 2;
-        _spr->setTextColor(_fgcolor, _bgcolor);
-        _spr->drawString(_buf, halfW / 2, h / 2);
-        if (_box.radius > 0) {
-            _spr->fillRoundRect(halfW, 0, halfW, h, _box.radius, _fgcolor);
-            _spr->fillRect(halfW, 0, _box.radius, h, _fgcolor);
+        // Flat 2-line layout: codec + bitrate on line 1, sample format on line 2.
+        const uint16_t infoColor = lgfx::color565(143, 216, 184);
 
-        } else {
-            _spr->fillRect(halfW, _box.border, halfW - _box.border, h - _box.border * 2, _fgcolor);
+        _spr->setTextDatum(lgfx::top_left);
+
+        uint8_t line1Size = 14;
+
+        const int16_t line1Y = 4;
+        const int16_t line2Y = 26;
+        const int16_t contentX = 0;
+
+        _applyFont(line1Size);
+        int32_t codecW = _spr->textWidth(fmt);
+        int32_t brW = _spr->textWidth(_buf);
+        const int32_t gap = 4;
+        const int32_t maxLine1W = w - (contentX * 2);
+        if (codecW + gap + brW > maxLine1W) {
+            line1Size = 12;
+            _applyFont(line1Size);
+            codecW = _spr->textWidth(fmt);
+            brW = _spr->textWidth(_buf);
         }
-        _spr->setTextColor(_bgcolor, _fgcolor);
-        _spr->drawString(fmt, halfW + halfW / 2, h / 2);
+
+        _spr->setTextColor(_fgcolor, _bgcolor);
+        _spr->drawString(fmt, contentX, line1Y);
+
+        const int32_t bitrateX = contentX + codecW + gap;
+        _spr->setTextColor(TFT_WHITE, _bgcolor);
+        _spr->drawString(_buf, bitrateX, line1Y);
+
+        char infoBuf[24];
+        if (_sampleRateHz > 0 && _bitDepth > 0) {
+            const uint32_t khzX10 = _sampleRateHz / 100;
+            const unsigned long srWhole = static_cast<unsigned long>(khzX10 / 10);
+            const unsigned long srFrac = static_cast<unsigned long>(khzX10 % 10);
+            snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz | %ubit", srWhole, srFrac, static_cast<unsigned>(_bitDepth));
+        } else {
+            snprintf(infoBuf, sizeof(infoBuf), "--kHz | --bit");
+        }
+
+        if (!_applyFont(line1Size)) {
+            // Keep second line readable when VLW fallback is unavailable.
+            _spr->setTextSize(1);
+        }
+        _spr->setTextColor(infoColor, _bgcolor);
+        _spr->drawString(infoBuf, contentX, line2Y);
     }
     _spr->pushSprite(_config.left, _config.top);
     /*
@@ -241,12 +274,13 @@ void BitrateWidget::_draw() {
 }
 
 inline bool BitrateWidget::_isFlat() {
-    return (config.store.nameday && DSP_MODEL != DSP_SSD1322);
+    // Keep the FLAT bitrate layout stable regardless of Nameday UI toggle.
+    return (DSP_MODEL != DSP_SSD1322);
 }
 
 void BitrateWidget::_clear() {
     if (_isFlat()) {
-        dsp.fillRect(_config.left, _config.top, _box.dimension * 2, _box.dimension / 2, config.theme.background); // _bgcolor  próba szürke 0x7BEF
+        dsp.fillRect(_config.left, _config.top, _box.dimension * 2, _box.dimension, config.theme.background); // _bgcolor  próba szürke 0x7BEF
     } else {
         dsp.fillRect(_config.left, _config.top, _box.dimension, _box.dimension, config.theme.background); // _bgcolor  próba szürke 0x7BEF
     }
