@@ -828,6 +828,8 @@ void Display::loop() {
                         if (_bitratewidget) {
                             _bitratewidget->setFormat(config.configFmt);
                             _bitratewidget->setBitrate(config.station.bitrate);
+                            _bitratewidget->setSampleRate(player.getSampleRate());
+                            _bitratewidget->setBitDepth(player.getBitsPerSample());
                         }
                         // Beállítja a csatorna számát a widgeten
                         if (_chbox) { _chbox->setText(config.lastStation(), "Ch:%d."); }
@@ -845,6 +847,10 @@ void Display::loop() {
                     if (_heapbar) {
                         _heapbar->lock(!config.store.audioinfo);
                         _heapbar->setValue(player.inBufferFilled());
+                    }
+                    if (_mode == PLAYER && _bitratewidget) {
+                        _bitratewidget->setSampleRate(player.getSampleRate());
+                        _bitratewidget->setBitDepth(player.getBitsPerSample());
                     }
                     break;
 

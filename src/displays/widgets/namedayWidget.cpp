@@ -7,6 +7,10 @@
 #include "../../core/fonts.h"
 
 #ifdef NAMEDAYS_FILE
+namespace {
+constexpr int16_t NAMEDAY_Y_OFFSET = 20;
+}
+
 NamedayWidget::~NamedayWidget() {
     if (_spr) {
         _spr->deleteSprite();
@@ -127,13 +131,13 @@ void NamedayWidget::_printNameday(bool force) {
     // --- KIRAJZOLÁS ---
     memcpy_P(&_namedayConf, &namedayConf, sizeof(NamedayWidgetConfig));
 
-    _spr->pushSprite(_namedayConf.left, _namedayConf.top);
+    _spr->pushSprite(_namedayConf.left, _namedayConf.top + NAMEDAY_Y_OFFSET);
 }
 
 void NamedayWidget::clearNameday() {
     memcpy_P(&_namedayConf, &namedayConf, sizeof(NamedayWidgetConfig));
 
-    dsp.fillRect(_namedayConf.left, _namedayConf.top, _spr_w, _spr_h, config.theme.background);
+    dsp.fillRect(_namedayConf.left, _namedayConf.top, _spr_w, _spr_h + NAMEDAY_Y_OFFSET, config.theme.background);
 }
 
 void NamedayWidget::draw(bool force) {
