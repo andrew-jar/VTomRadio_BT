@@ -4508,7 +4508,7 @@ void Audio::processWebStream() {
     uint16_t readedBytes = 0;
 
     m_pwst.availableBytes = 0; // available from stream
-    m_pwst.f_clientIsConnected = m_client->connected();
+    m_pwst.f_clientIsConnected = true;
     m_pwst.writeSpace = UINT16_MAX;
 
     // first call, set some values to default  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -4583,9 +4583,9 @@ void Audio::processWebStream() {
     // if the buffer is often almost empty issue a warning - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     if (m_f_stream) {
         if (!m_f_allDataReceived) streamDetection(m_pwst.availableBytes);
-        if (!m_pwst.f_clientIsConnected) {
-            if (m_f_tts && !m_f_allDataReceived) m_f_allDataReceived = true;
-        } // connection closed (OpenAi)
+        if (m_f_tts && m_f_connectionClose && m_pwst.availableBytes == 0 && InBuff.bufferFilled() == 0 && m_validSamples == 0) {
+            m_f_allDataReceived = true;
+        }
     }
 
     if (!m_decoder && InBuff.bufferFilled() > 127) {
