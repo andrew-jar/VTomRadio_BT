@@ -160,9 +160,28 @@ void my_audio_info(Audio::msg_t m) {
         netserver.requestOnChange(BITRATE, 0);
       }
 
+      // Bias Radio / Icecast FLAC bez ICY StreamTitle: jeśli tytuł nadal jest
+      // w stanie "connecting" albo pusty, pokaż nazwę stacji zamiast placeholdera.
+      if ((newFmt == BF_FLAC || newFmt == BF_WAV) && config.station.title) {
+        const char *curTitle = config.station.title;
+        if (strlen(curTitle) == 0 || strcmp_P(curTitle, LANG::const_PlConnect) == 0) {
+          const char *fallbackName = playlistStationDisplayName();
+          if (fallbackName && strlen(fallbackName) > 0) {
+            Serial.printf("##AUDIO.FALLBACK## FLAC/WAV fallback title => '%s'\n", fallbackName);
+            audio_setTitleSafe(fallbackName);
+          }
+        }
+      }
+
       // SD mód: "stream ready" → seek a mentett pozícióra
       if (strstr(msg, "stream ready") != nullptr) {
         seekSD();
+        if (config.station.title && (strlen(config.station.title) == 0 || strcmp_P(config.station.title, LANG::const_PlConnect) == 0)) {
+          const char *fallbackName = playlistStationDisplayName();
+          if (fallbackName && strlen(fallbackName) > 0) {
+            audio_setTitleSafe(fallbackName);
+          }
+        }
       }
       // SD mód: Audio-Data-Start
       else if (strstr(msg, "Audio-Data-Start:") != nullptr) {
@@ -203,8 +222,8 @@ void my_audio_info(Audio::msg_t m) {
       //hexDump("Eredeti: ", msg);
       char metaBuf[BUFLEN];
       if (!metaOff && cleanMeta(msg, metaBuf, sizeof(metaBuf))) {
+        Serial.printf("##AUDIO.TITLE## real stream title -> '%s'\n", metaBuf);
         audio_setTitleSafe(metaBuf);
-
       }
       //Serial.println();
       //hexDump("cleanMeta után: ", metaBuf);

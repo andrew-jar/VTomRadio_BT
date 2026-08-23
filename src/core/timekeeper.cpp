@@ -577,7 +577,7 @@ bool _getWeather() {
                         }
 
 #    ifdef USE_NEXTION
-                        nextion.putcmdf("press_txt.txt=\"%dmm\"", press);
+                        nextion.putcmdf("press_txt.txt=\"%dhPa\"", press);
                         nextion.putcmdf("hum_txt.txt=\"%d%%\"", hum);
                         char cmd[30];
                         snprintf(cmd, sizeof(cmd) - 1, "temp_txt.txt=\"%.1f\"", tempf);
@@ -607,7 +607,7 @@ bool _getWeather() {
                         nextion.weatherVisible(1);
 #    endif
 
-                        Serial.printf("##WEATHER###: description: %s, temp:%.1f C, pressure:%dmmHg, humidity:%d%%, wind: %d\n", desc, tempf, press, hum, (int)(wind_deg / 22.5));
+                        Serial.printf("##WEATHER###: description: %s, temp:%.1f C, pressure:%dhPa, humidity:%d%%, wind: %d\n", desc, tempf, press, hum, (int)(wind_deg / 22.5));
 #    ifdef WEATHER_FMT_SHORT
                         sprintf(timekeeper.weatherBuf, LANG::weatherFmt, tempf, press, hum, static_cast<double>(wind_speed));
 #    else
