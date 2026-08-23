@@ -18,7 +18,8 @@ enum playerRequestType_e : uint8_t {
   PR_VUTONUS = 7,
   PR_BURL = 8,
   PR_TOGGLE = 9,
-  PR_URL = 10
+  PR_URL = 10,
+  PR_TTS = 11
 };
 struct playerRequestParams_t {
   playerRequestType_e type;
@@ -47,6 +48,8 @@ private:
   // (fixed sizes to avoid dependency on BUFLEN macro)
   char _urlBuf[512];
   char _nameBuf[192];
+  char _speechBuf[128];
+  char _speechLangBuf[8];
 
 public:
   bool lockOutput = true;
@@ -86,6 +89,7 @@ public:
   void stopInfo();
   // Play arbitrary URL (used by presets). Executed in player task via queue.
   void playUrl(const char *url, const char *name = nullptr);
+  bool playSpeech(const char *speech, const char *lang);
   void setOutputPins(bool isPlaying);
   void setResumeFilePos(uint32_t pos) { _resumeFilePos = pos; }
 };

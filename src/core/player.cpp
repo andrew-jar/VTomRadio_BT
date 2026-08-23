@@ -309,6 +309,14 @@ void Player::loop() {
         }
         break;
       }
+      case PR_TTS:
+      {
+        if (!connecttospeech(_speechBuf, _speechLangBuf)) {
+          _status = STOPPED;
+          setOutputPins(false);
+        }
+        break;
+      }
       default: break;
     }
   }
@@ -363,6 +371,16 @@ void Player::playUrl(const char *url, const char *name) {
     _nameBuf[0] = '\0';
   }
   sendCommand({PR_URL, 0});
+}
+
+bool Player::playSpeech(const char *speech, const char *lang) {
+  if (!speech || !speech[0] || !lang || !lang[0] || playerQueue == NULL) {
+    return false;
+  }
+  strlcpy(_speechBuf, speech, sizeof(_speechBuf));
+  strlcpy(_speechLangBuf, lang, sizeof(_speechLangBuf));
+  playerRequestParams_t request{PR_TTS, 0};
+  return xQueueSend(playerQueue, &request, PLQ_SEND_DELAY) == pdTRUE;
 }
 
 void Player::_play(uint16_t stationId) {

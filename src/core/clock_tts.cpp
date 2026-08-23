@@ -25,7 +25,7 @@ static int clock_tts_saved_station = -1;
 static bool clock_tts_resume_after = false;
 static unsigned long clock_tts_wait_before_speak = 0;
 static constexpr unsigned long CLOCK_TTS_MAX_ACTIVE_MS = 12000;
-static constexpr unsigned long CLOCK_TTS_NO_PROGRESS_MS = 3500;
+static constexpr unsigned long CLOCK_TTS_NO_PROGRESS_MS = 6000;
 
 // Konfigurációs változók
 static bool clock_tts_enabled = false;
@@ -147,7 +147,7 @@ void clock_tts_setup() {
 void clock_tts_force(const char* text, const char* lang) {
   bool resumeAfter = player.isRunning();
   int savedStation = resumeAfter ? config.lastStation() : -1;
-  if (player.connecttospeech(text, lang ? lang : clock_tts_language)) {
+  if (player.playSpeech(text, lang ? lang : clock_tts_language)) {
     clock_lastTTSMillis = millis();
     clock_tts_started_at = clock_lastTTSMillis;
     clock_tts_last_progress_at = clock_lastTTSMillis;
@@ -197,8 +197,12 @@ void clock_tts_loop() {
       clock_tts_audio_progress_seen = true;
     }
 
-    bool shouldRecover = !player.isRunning() || (nowMillis - clock_tts_started_at > CLOCK_TTS_MAX_ACTIVE_MS);
-    if (!clock_tts_audio_progress_seen && (nowMillis - clock_tts_started_at > CLOCK_TTS_NO_PROGRESS_MS)) {
+    const unsigned long elapsed = nowMillis - clock_tts_started_at;
+    bool shouldRecover = elapsed > CLOCK_TTS_MAX_ACTIVE_MS;
+    if (!player.isRunning() && (clock_tts_audio_progress_seen || elapsed > CLOCK_TTS_NO_PROGRESS_MS)) {
+      shouldRecover = true;
+    }
+    if (!clock_tts_audio_progress_seen && elapsed > CLOCK_TTS_NO_PROGRESS_MS) {
       shouldRecover = true;
     }
     if (!shouldRecover) {
@@ -254,7 +258,7 @@ void clock_tts_loop() {
       char buf[48];
       clock_tts_announcement(buf, sizeof(buf), tm_struct->tm_hour, tm_struct->tm_min, clock_tts_language);
       player.setVolume(clock_tts_prev_volume);
-      if (player.connecttospeech(buf, clock_tts_language)) {
+      if (player.playSpeech(buf, clock_tts_language)) {
         clock_lastTTSMillis = nowMillis;
         clock_tts_started_at = nowMillis;
         clock_tts_last_progress_at = nowMillis;
@@ -313,7 +317,7 @@ void clock_tts_loop() {
         if (!player.isRunning()) {
           char buf[48];
           clock_tts_announcement(buf, sizeof(buf), tm_struct->tm_hour, tm_struct->tm_min, clock_tts_language);
-          if (player.connecttospeech(buf, clock_tts_language)) {
+          if (player.playSpeech(buf, clock_tts_language)) {
             clock_lastTTSMillis = nowMillis;
             clock_tts_started_at = nowMillis;
             clock_tts_last_progress_at = nowMillis;
