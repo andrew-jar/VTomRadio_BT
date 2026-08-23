@@ -82,6 +82,13 @@ Do pełnego szczęścia musisz wgrać jeszcze z repo : "WROOM_A2DP"  na dodatkow
 
 https://github.com/andrew-jar/WROOM_A2DP
 
+Jak to dziala: ESP32-S3 wysyla dzwiek do WROOM przewodem I2S w formacie stereo 32-bit.
+Nastepnie WROOM zmniejsza format do 16-bit i dopiero wtedy wysyla dzwiek przez Bluetooth.
+Czyli 32-bit dotyczy polaczenia miedzy plytkami, a 16-bit dotyczy transmisji Bluetooth - oba ustawienia sa prawidlowe.
+
+WROOM pracuje jako odbiornik I2S (I2S Slave), sam rozpoznaje dzwiek 44,1 kHz lub 48 kHz
+i w razie potrzeby dopasowuje go do 44,1 kHz przed wyslaniem jako nadajnik Bluetooth A2DP (TX).
+
 ----------------------------------------------
 
 
