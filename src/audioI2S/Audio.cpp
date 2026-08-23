@@ -580,6 +580,7 @@ void Audio::setDefaults() {
     m_streamTitle.reset();
     m_streamURL.reset();
     m_playlistBuff.reset();
+    m_content_type.reset();
     m_m3u8_host.reset();
 
     m_outBuff.clear();       // Clear OutputBuffer
@@ -836,7 +837,7 @@ bool Audio::connecttohost(const char* host, const char* user, const char* pwd) {
     ps_ptr<char> c_user = user; // copy of user
     ps_ptr<char> c_pwd = pwd;   // copy of password
 
-    if (!c_host.valid()) {
+    if (!c_host.valid() || c_host.strlen() == 0) {
         AUDIO_LOG_ERROR("Hostaddress is empty");
         stopSong();
         return false;
@@ -3965,10 +3966,10 @@ ps_ptr<char> Audio::parsePlaylist_M3U() {
         if (m_playlistContent[i].index_of("http") >= 0) {
             host = m_playlistContent[i];
             host.trim();
-            return host.c_get();
+            return host;
         }
     }
-    return "";
+    return {};
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————-
 ps_ptr<char> Audio::parsePlaylist_PLS() {
@@ -4051,7 +4052,7 @@ ps_ptr<char> Audio::parsePlaylist_PLS() {
             return entries[i].file;
         }
     }
-    return "";
+    return {};
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————-
 ps_ptr<char> Audio::parsePlaylist_ASX() { // Advanced Stream Redirector
@@ -4136,10 +4137,10 @@ ps_ptr<char> Audio::parsePlaylist_ASX() { // Advanced Stream Redirector
     for (int i = 0; i < entries.size(); i++) {
         if (entries[i].url.valid()) {
             info(*this, evt_name, "{}", entries[i].title);
-            return entries[i].url.c_get();
+            return entries[i].url;
         }
     }
-    return "";
+    return {};
 }
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————-
@@ -5316,7 +5317,11 @@ lastToDo:
         m_dataMode = AUDIO_PLAYLISTINIT; // playlist expected
         // AUDIO_LOG_INFO("now parse playlist");
     } else {
-        AUDIO_LOG_INFO("unknown content found at: {}", m_currentHost.c_get());
+        if (m_content_type.valid()) {
+            AUDIO_LOG_INFO("unknown content found at: {}, content type is: {}", m_currentHost.c_get(), m_content_type.c_get());
+        } else {
+            AUDIO_LOG_INFO("unknown content found at: {}", m_currentHost.c_get());
+        }
         goto exit;
     }
 
@@ -5481,6 +5486,7 @@ bool Audio::initializeDecoder() {
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 bool Audio::parseContentType(ps_ptr<char> ct) {
+    m_content_type = ct;
     enum : int { CT_NONE, CT_MP3, CT_AAC, CT_M4A, CT_WAV, CT_FLAC, CT_PLS, CT_M3U, CT_ASX, CT_M3U8, CT_TXT, CT_AACP, CT_OPUS, CT_OGG, CT_VORBIS };
 
     // MIME types and their CT_Val values
@@ -5856,15 +5862,17 @@ void Audio::setDecoderItems() {
     uint32_t decoderBitRate = m_decoder->getBitRate();
     if (!m_nominal_bitrate && decoderBitRate > 0) {
         m_nominal_bitrate = decoderBitRate;
-        info(*this, evt_bitrate, "%i", m_nominal_bitrate);
-        info(*this, evt_info, "Bitrate (b/s): %lu", m_nominal_bitrate);
+        info(*this, evt_bitrate, "{}", m_nominal_bitrate);
+        info(*this, evt_info, "Bitrate (b/s): {}", m_nominal_bitrate);
     }
     // Módosítás vége
     if (m_decoder->arg1()) info(*this, evt_info, "{}", m_decoder->arg1());
     if (m_decoder->getAudioDataStart() > 0) { // only flac-ogg, native flac sets audioDataStart in readFlacHeader()
         m_audioDataStart = m_decoder->getAudioDataStart();
     }
-    if (m_audioDataStart && m_audioDataSize == m_audioFileSize) { m_audioDataSize = m_audioFileSize - m_audioDataStart; }
+    if (m_audioDataStart && m_audioDataSize == m_audioFileSize && m_audioFileSize >= m_audioDataStart) {
+        m_audioDataSize = m_audioFileSize - m_audioDataStart;
+    }
 
     info(*this, evt_info, "Audio-Data-Start: {}", m_audioDataStart);
     info(*this, evt_info, "Audio-Length: {}", m_audioDataSize);
