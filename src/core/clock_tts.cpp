@@ -97,6 +97,7 @@ void clock_tts_set_quiet_hours(bool enabled, uint16_t fromMinutes, uint16_t toMi
 void clock_tts_enable(bool enable) {
   clock_tts_enabled = enable;
   if (!enable) {
+    bool resumeStation = clock_ttsActive && clock_tts_resume_after && clock_tts_saved_station > 0;
     if (clock_tts_prev_volume > 0) {
       player.setVolume(clock_tts_prev_volume);
     }
@@ -111,6 +112,10 @@ void clock_tts_enable(bool enable) {
     clock_tts_resume_after = false;
     clock_tts_wait_before_speak = 0;
     config.isClockTTS = false;
+    if (resumeStation) {
+      player.stopSong();
+      player.sendCommand({PR_PLAY, clock_tts_saved_station});
+    }
   }
 }
 
@@ -140,13 +145,16 @@ void clock_tts_setup() {
 }
 
 void clock_tts_force(const char* text, const char* lang) {
+  bool resumeAfter = player.isRunning();
+  int savedStation = resumeAfter ? config.lastStation() : -1;
   if (player.connecttospeech(text, lang ? lang : clock_tts_language)) {
     clock_lastTTSMillis = millis();
     clock_tts_started_at = clock_lastTTSMillis;
     clock_tts_last_progress_at = clock_lastTTSMillis;
     clock_tts_last_audio_time = player.getAudioCurrentTime();
     clock_tts_audio_progress_seen = false;
-    clock_tts_resume_after = false;
+    clock_tts_saved_station = savedStation;
+    clock_tts_resume_after = resumeAfter;
     clock_ttsActive = true;
     config.isClockTTS = true;
   }
@@ -178,10 +186,43 @@ void clock_tts_loop() {
   if (!clock_tts_enabled) {
     return;
   }
+  unsigned long nowMillis = millis();
+
+  // An already started TTS must always be recovered, even if the clock source is temporarily unavailable.
+  if (clock_ttsActive) {
+    uint32_t nowAudioTime = player.getAudioCurrentTime();
+    if (nowAudioTime != clock_tts_last_audio_time || player.inBufferFilled() > 0) {
+      clock_tts_last_audio_time = nowAudioTime;
+      clock_tts_last_progress_at = nowMillis;
+      clock_tts_audio_progress_seen = true;
+    }
+
+    bool shouldRecover = !player.isRunning() || (nowMillis - clock_tts_started_at > CLOCK_TTS_MAX_ACTIVE_MS);
+    if (!clock_tts_audio_progress_seen && (nowMillis - clock_tts_started_at > CLOCK_TTS_NO_PROGRESS_MS)) {
+      shouldRecover = true;
+    }
+    if (!shouldRecover) {
+      return;
+    }
+
+    if (clock_tts_resume_after) {
+      player.sendCommand({PR_PLAY, clock_tts_saved_station});
+      clock_tts_fading_up = true;
+      clock_tts_fade_timer = nowMillis;
+    }
+    clock_tts_started_at = 0;
+    clock_tts_last_progress_at = 0;
+    clock_tts_last_audio_time = 0;
+    clock_tts_audio_progress_seen = false;
+    clock_tts_resume_after = false;
+    clock_ttsActive = false;
+    config.isClockTTS = false;
+    return;
+  }
+
   if (config.getMode() == PM_SDCARD) {
     return;
   }
-  unsigned long nowMillis = millis();
   tm localTm = clock_tts_get_display_time_snapshot();
   struct tm* tm_struct = &localTm;
 
@@ -290,39 +331,5 @@ void clock_tts_loop() {
         return;
       }
     }
-  }
-  if (clock_ttsActive) {
-    uint32_t nowAudioTime = player.getAudioCurrentTime();
-    if (nowAudioTime != clock_tts_last_audio_time || player.inBufferFilled() > 0) {
-      clock_tts_last_audio_time = nowAudioTime;
-      clock_tts_last_progress_at = nowMillis;
-      clock_tts_audio_progress_seen = true;
-    }
-
-    bool shouldRecover = false;
-    if (!player.isRunning() || (nowMillis - clock_tts_started_at > CLOCK_TTS_MAX_ACTIVE_MS)) {
-      shouldRecover = true;
-    }
-    if (!clock_tts_audio_progress_seen && (nowMillis - clock_tts_started_at > CLOCK_TTS_NO_PROGRESS_MS)) {
-      shouldRecover = true;
-    }
-
-    if (!shouldRecover) {
-      return;
-    }
-
-    if (clock_tts_resume_after) {
-      player.sendCommand({PR_PLAY, clock_tts_saved_station});
-      clock_tts_fading_up = true;
-      clock_tts_fade_timer = nowMillis;
-    }
-    clock_tts_started_at = 0;
-    clock_tts_last_progress_at = 0;
-    clock_tts_last_audio_time = 0;
-    clock_tts_audio_progress_seen = false;
-    clock_tts_resume_after = false;
-    clock_ttsActive = false;
-    config.isClockTTS = false;
-    return;
   }
 }

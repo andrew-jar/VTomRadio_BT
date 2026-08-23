@@ -235,7 +235,7 @@ bool TimeKeeper::loop1() { // core1 (player)
     /*----- Stops playback in internet radio mode when the playback buffer runs out. Then restarts playback. -----*/
     if (currentTime - _lastStallCheck >= 1000) { // 1sec
         _lastStallCheck = currentTime;
-        if (config.store.stallWatchdog && player.isRunning() && config.getMode() == PM_WEB && network.status == CONNECTED && !player.lockOutput) {
+        if (config.store.stallWatchdog && !config.isClockTTS && player.isRunning() && config.getMode() == PM_WEB && network.status == CONNECTED && !player.lockOutput) {
             uint32_t buf = player.inBufferFilled();
             if (buf == 0) {
                 if (_stallSince == 0) { _stallSince = currentTime; }
