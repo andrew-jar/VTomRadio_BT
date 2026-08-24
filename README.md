@@ -42,30 +42,6 @@ Uwaga przy aktualizacjach: z powodu skali zmian nie da sie zrobic prostego
 
 ---------------------------------------------------------------------
 
-## Wersja hybrydowa (0.1.14-mod.hybrid)
-
-Wersja firmware to `0.1.14-mod.hybrid`. "Hybryda" oznacza, ze z oryginalu 0.1.14
-przeniesiony zostal tylko menedzer plikow po WiFi, bez rezygnacji z wlasnego
-trybu serwisowego po porcie szeregowym. Dzieki temu dzialaja oba naraz.
-
-Menedzer plikow po WiFi (`src/core/fs_api_http.cpp`, kod z oryginalu):
-
-- `GET /api/fs/ping` - sprawdzenie, czy system plikow odpowiada.
-- `GET /api/fs/list` - lista plikow i katalogow.
-- `GET /api/fs/info` - rozmiar, zajete i wolne miejsce.
-- `GET /api/fs/read` - odczyt pliku.
-- `POST /api/fs/mkdir`, `/api/fs/rmdir`, `/api/fs/delete` - operacje na plikach.
-- `POST /api/reboot` - restart urzadzenia.
-
-Wlasne dodatki do tego mechanizmu:
-
-- Menedzer mozna wlaczyc i wylaczyc z panelu WWW - przelacznik `HTTP FS manager (WiFi)`
-  w ustawieniach, obok `Serial LittleFS maintenance mode`.
-- Tryb serwisowy po porcie szeregowym (`serialLittlefsEnabled`) zostal zachowany
-  i dziala niezaleznie - okno na wejscie otwiera sie przez 4 sekundy po starcie.
-
----------------------------------------------------------------------
-
 Wymagane srodowisko kompilacji (VS Code + PlatformIO)
 
 Ten projekt jest przygotowany pod PlatformIO i framework `pioarduino` dla ESP32-S3.
@@ -92,7 +68,29 @@ WROOM pracuje jako odbiornik I2S (I2S Slave), sam rozpoznaje dzwiek 44,1 kHz lub
 i w razie potrzeby dopasowuje go do 44,1 kHz przed wyslaniem jako nadajnik Bluetooth A2DP (TX).
 
 ----------------------------------------------
+## Wersja hybrydowa (0.1.14-mod.hybrid)
 
+Wersja firmware to `0.1.14-mod.hybrid`. "Hybryda" oznacza, ze z oryginalu 0.1.14
+przeniesiony zostal tylko menedzer plikow po WiFi, bez rezygnacji z wlasnego
+trybu serwisowego po porcie szeregowym. Dzieki temu dzialaja oba naraz.
+
+Menedzer plikow po WiFi (`src/core/fs_api_http.cpp`, kod z oryginalu):
+
+- `GET /api/fs/ping` - sprawdzenie, czy system plikow odpowiada.
+- `GET /api/fs/list` - lista plikow i katalogow.
+- `GET /api/fs/info` - rozmiar, zajete i wolne miejsce.
+- `GET /api/fs/read` - odczyt pliku.
+- `POST /api/fs/mkdir`, `/api/fs/rmdir`, `/api/fs/delete` - operacje na plikach.
+- `POST /api/reboot` - restart urzadzenia.
+
+Wlasne dodatki do tego mechanizmu:
+
+- Menedzer mozna wlaczyc i wylaczyc z panelu WWW - przelacznik `HTTP FS manager (WiFi)`
+  w ustawieniach, obok `Serial LittleFS maintenance mode`.
+- Tryb serwisowy po porcie szeregowym (`serialLittlefsEnabled`) zostal zachowany
+  i dziala niezaleznie - okno na wejscie otwiera sie przez 4 sekundy po starcie.
+
+---------------------------------------------------------------------
 
 <img width="650" height="366" alt="foto" src="https://github.com/user-attachments/assets/3312710f-0300-4406-8c3c-5c7fc1efbfd1" />
 
