@@ -99,7 +99,9 @@ uint8_t AACDecoder::getBitsPerSample() {
 }
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 uint32_t AACDecoder::getBitRate() {
-    uint32_t br = getBitsPerSample() * getChannels() * getSampleRate();
+    // m_compressionRatio is measured against 16-bit PCM (samples * 2 / bytesconsumed), so the
+    // reference rate must use 16 bits even though the output buffer holds 32-bit words.
+    uint32_t br = 16 * getChannels() * getSampleRate();
     return (br / m_compressionRatio);
     ;
 }

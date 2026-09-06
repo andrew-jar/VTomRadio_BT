@@ -58,6 +58,8 @@ bool SDManager::start(){
 
 void SDManager::stop(){
   end();
+  // Explicitly deselect the SD card so it can't interfere with the TFT sharing the same SPI bus.
+  digitalWrite(SDC_CS, HIGH);
   ready = false;
 }
 #include "diskio_impl.h"
