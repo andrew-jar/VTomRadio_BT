@@ -5587,6 +5587,7 @@ bool Audio::parseContentType(ps_ptr<char> ct) {
         case CT_TXT:
             if (m_expectedCodec == CODEC_AAC) m_codec = CODEC_AAC;
             if (m_expectedCodec == CODEC_MP3) m_codec = CODEC_MP3;
+            if (m_expectedCodec == CODEC_FLAC) m_codec = CODEC_FLAC;
             if (m_expectedPlsFmt == FORMAT_ASX) m_playlistFormat = FORMAT_ASX;
             if (m_expectedPlsFmt == FORMAT_M3U) m_playlistFormat = FORMAT_M3U;
             if (m_expectedPlsFmt == FORMAT_M3U8) m_playlistFormat = FORMAT_M3U8;
@@ -5655,6 +5656,10 @@ void Audio::showstreamtitle(char* st) {
         } else if (artist.valid()) {
             streamTitle.assign(artist.get());
         }
+    }
+
+    else if (ml.starts_with("StreamTitle='';")) {
+        streamTitle.assign(""); // keep it valid() so the empty title is still reported
     }
 
     else if (ml.index_of("StreamTitle='") == 0) {

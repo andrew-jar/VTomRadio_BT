@@ -320,6 +320,13 @@ void Config::changeMode(int newmode) { // DLNA mod
         ESP.restart();
     }
 
+    /* === always stop playback before switching, otherwise the decoder task keeps
+       reading from a filesystem that is about to be unmounted === */
+    if (pir) {
+        player.sendCommand({PR_STOP, 0});
+        delay(50);
+    }
+
     /* === SD only when explicitly requested === */
     if (newmode == PM_SDCARD) {
         if (!sdman.ready) {
@@ -344,7 +351,6 @@ void Config::changeMode(int newmode) { // DLNA mod
 
     /* === SD specific actions === */
     if (getMode() == PM_SDCARD) {
-        if (pir) { player.sendCommand({PR_STOP, 0}); }
         display.putRequest(NEWMODE, SDCHANGE);
         delay(50);
     } else {

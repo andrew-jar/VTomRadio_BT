@@ -226,10 +226,12 @@ void PlayListWidget::drawPlaylist(uint16_t currentItem) {
 
             // Minden sor kirajzolása, a kurzorsor kivételével
             _loadDspFont();
+            dsp.startWrite();
             for (int i = 0; i < itemsPerPage; i++) {
                 if (i != newLocalPos) { _printPLitem(i, _plCache[i].c_str(), true); }
                 if (i % 2 == 0) yield();
             }
+            dsp.endWrite();
             dsp.unloadFont();
         } else {
             // --- SMART REDRAW: csak a megváltozott sorok frissítése ---

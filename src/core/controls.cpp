@@ -312,7 +312,8 @@ void encodersLoop(myEncoder* enc, bool first) {
             else if (p > cs)
                 p = 1;
             display.currentPlItem = p;
-            display.resetQueue();
+            // putRequest() already coalesces pending DRAWPLAYLIST entries; resetQueue() here
+            // would also drop unrelated queued updates (mode/title/IP) on every encoder tick.
             display.putRequest(DRAWPLAYLIST, p);
             config.screensaverTicks = 0;
         }
@@ -884,12 +885,13 @@ void controlsEvent(bool toRight, int8_t volDelta) {
         }
     }
     if (display.mode() == STATIONS) {
-        display.resetQueue();
         int      p = toRight ? display.currentPlItem + 1 : display.currentPlItem - 1;
         uint16_t cs = config.playlistLength();
         if (p < 1) p = cs;
         if (p > cs) p = 1;
         display.currentPlItem = p;
+        // putRequest() already coalesces pending DRAWPLAYLIST entries; resetQueue() here
+        // would also drop unrelated queued updates (mode/title/IP) on every step.
         display.putRequest(DRAWPLAYLIST, p);
     }
 }
