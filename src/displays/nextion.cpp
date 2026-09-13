@@ -109,6 +109,12 @@ void Nextion::processQueue(){
         bootString(buf);
         break;
       }
+      case BOOTWIFISWITCH:
+        bootString("Wi-Fi switching...");
+        break;
+      case BOOTWIFISCAN:
+        bootString("Scanning Wi-Fi...");
+        break;
       case NEWSTATION: {
         newNameset(config.station.name);
         bitrate(config.station.bitrate);

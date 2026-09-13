@@ -895,6 +895,14 @@ void Display::loop() {
 #endif*/
                     break;
 
+                case BOOTWIFISWITCH:
+                    if (_bootstring) { _bootstring->setText("Wi-Fi switching..."); }
+                    break;
+
+                case BOOTWIFISCAN:
+                    if (_bootstring) { _bootstring->setText("Scanning Wi-Fi..."); }
+                    break;
+
                 case WAITFORSD:
                     if (_bootstring) { _bootstring->setText(LANG::const_waitForSD); }
                     break;

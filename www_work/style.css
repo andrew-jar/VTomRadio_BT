@@ -638,6 +638,79 @@ input[type=range] {
   stroke: var(--main-bg-color);
 }
 
+.wifi-credential {
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.wifi-credential .wifi-scan-button,
+.wifi-credential .wifi-eye-button {
+  flex: 0 0 37px;
+  margin-top: 20px;
+}
+
+.wifi-credential .wifi-scan-button svg,
+.wifi-credential .wifi-eye-button svg {
+  stroke: #fff;
+}
+
+.wifi-credential .wifi-eye-button.hl svg {
+  stroke: var(--accent-text-color);
+}
+
+.wifi-credential .inputwrap {
+  min-width: 0;
+}
+
+.wifi-credential .wifi-password-wrap {
+  flex: 0 1 45%;
+}
+
+.wifi-scan-results {
+  max-height: 220px;
+  overflow-y: auto;
+  border: var(--section-border) 1px solid;
+  margin: 10px 0;
+}
+
+.wifi-scan-results.hidden {
+  display: none;
+}
+
+.wifi-scan-result {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.wifi-scan-result:hover {
+  background: var(--accent-dark);
+  color: var(--accent-text-color);
+}
+
+.wifi-scan-rssi {
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 480px) {
+  .wifi-credential .wifi-scan-button,
+  .wifi-credential .wifi-eye-button {
+    flex: 0 0 37px;
+    margin-left: 0;
+  }
+
+  .wifi-credential .inputwrap {
+    flex: 1 1 0;
+  }
+
+  .wifi-credential .wifi-password-wrap {
+    flex: 0 1 38%;
+    margin-left: 0;
+  }
+}
+
 #playlist {
   position: relative;
   scroll-behavior: smooth;
@@ -999,6 +1072,10 @@ section .title span {
   align-items: flex-end;
   padding: 0 0 10px 0;
   box-sizing: border-box;
+}
+
+.flex-row > *:first-child {
+  margin-left: 0;
 }
 
 .flex-row.title-gap-row {

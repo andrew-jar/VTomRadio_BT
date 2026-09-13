@@ -626,7 +626,7 @@ static bool shouldRedirectEmptyFsRequest(AsyncWebServerRequest *request) {
 
 static bool hasRequiredWebboardFiles() {
   const char *requiredWebFiles[] = {
-    "dragpl.js", "ir.css", "irrecord.html", "ir.js", "logo.svg", "options.html", "player.html", "script.js", "style.css", "updform.html", "theme.css", "theme-editor.html", "volcurve.html"
+    "dragpl.js", "ir.css", "irrecord.html", "ir.js", "logo.svg", "options.html", "player.html", "script.js", "style.css", "updform.html", "theme.css", "theme-editor.html", "volcurve.html", "wifiset.html"
   };
   const char *requiredFonts[] = {
     "roboto9.vlw", "roboto12.vlw", "roboto16.vlw", "roboto18.vlw", "roboto20.vlw", "roboto22.vlw", "roboto24.vlw", "roboto26.vlw", "roboto36.vlw"
@@ -1210,6 +1210,11 @@ bool NetServer::begin(bool quiet) {
     response->addHeader("Cache-Control", "max-age=31536000");
     request->send(response);
   });
+  webserver.on("/wifiset", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_html);
+    response->addHeader("Cache-Control", "max-age=31536000");
+    request->send(response);
+  });
   webserver.on("/update.html", HTTP_GET, [](AsyncWebServerRequest *request) {
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_html);
     response->addHeader("Cache-Control", "max-age=31536000");
@@ -1652,9 +1657,9 @@ void NetServer::processQueue() {
         int wsPos = snprintf(
           wsBuf,
           sizeof(wsBuf),
-          "{\"sst\":%d,\"aif\":%d,\"rssiastext\":%d,\"vu\":%d,\"vupeak\":%d,\"vubox\":%d,\"softr\":%d,\"vut\":%d,\"mdns\":\"%s\",\"ipaddr\":\"%s\", \"watchdog\": %d, \"stallwatchdog\": %d, \"seriallittlefs\": %d, \"httpfsmanager\": %d, "
+          "{\"sst\":%d,\"aif\":%d,\"rssiastext\":%d,\"vu\":%d,\"vupeak\":%d,\"vubox\":%d,\"softr\":%d,\"wifiminrssi\":%d,\"vut\":%d,\"mdns\":\"%s\",\"ipaddr\":\"%s\", \"watchdog\": %d, \"stallwatchdog\": %d, \"seriallittlefs\": %d, \"httpfsmanager\": %d, "
           "\"nameday\": %d, \"clocktts\": %d, \"clockttslang\": \"%.2s\", \"clockttsinterval\": %u, ",
-          config.isSmartStartEnabled(), config.store.audioinfo, config.store.rssiAsText, config.store.vumeter, config.store.vuPeak, config.store.vuBidirectional, config.store.softapdelay, config.vuRefLevel, config.store.mdnsname,
+          config.isSmartStartEnabled(), config.store.audioinfo, config.store.rssiAsText, config.store.vumeter, config.store.vuPeak, config.store.vuBidirectional, config.store.softapdelay, config.store.wifiMinRssi, config.vuRefLevel, config.store.mdnsname,
           config.ipToStr(WiFi.localIP()), config.store.watchdog, config.store.stallWatchdog, config.store.serialLittlefsEnabled, config.store.httpFsManagerEnabled, config.store.nameday,
           config.store.clockTtsEnabled, config.store.clockTtsLanguage, static_cast<unsigned int>(config.store.clockTtsIntervalMinutes)
         );
@@ -2404,7 +2409,7 @@ void handleNotFound(AsyncWebServerRequest *request) {
     return;
   }
   if (strcmp(request->url().c_str(), "/settings.html") == 0 || strcmp(request->url().c_str(), "/update.html") == 0
-      || strcmp(request->url().c_str(), "/ir.html") == 0) {
+      || strcmp(request->url().c_str(), "/ir.html") == 0 || strcmp(request->url().c_str(), "/wifiset") == 0) {
     //request->send_P(200, "text/html", index_html);
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", index_html);
     response->addHeader("Cache-Control", "max-age=31536000");
@@ -2429,15 +2434,18 @@ void handleIndex(AsyncWebServerRequest *request) {
     if (request->url() == "/" && request->method() == HTTP_POST) {
       String ssid = request->hasParam("ssid", true) ? request->getParam("ssid", true)->value() : request->arg("ssid");
       String pass = request->hasParam("pass", true) ? request->getParam("pass", true)->value() : request->arg("pass");
-      if (ssid != "" && pass != "") {
+      ssid.trim();
+      pass.trim();
+      if (ssid.length() > 0) {
         netserver.nsBuf[0] = '\0';
         snprintf(netserver.nsBuf, sizeof(netserver.nsBuf), "%s\t%s", ssid.c_str(), pass.c_str());
-        request->redirect("/");
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/html", "<html><head><meta http-equiv='refresh' content='10;url=/'></head><body style='background:#000;color:#4b95d6;text-align:center;padding:50px;font-family:sans-serif;'><h2>Wi-Fi saved. Restarting...</h2></body></html>");
+        response->addHeader("Connection", "close");
+        request->send(response);
         config.saveWifiFromNextion(netserver.nsBuf);
         return;
       }
       request->redirect("/");
-      ESP.restart();
       return;
     }
     Serial.print("Not Found: ");
