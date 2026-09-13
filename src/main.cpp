@@ -286,7 +286,8 @@ void setup() {
 #endif
     if (config.getMode() == PM_SDCARD) player.initHeaders(config.station.url);
     player.lockOutput = false;
-    if (config.isSmartStartEnabled()) { player.sendCommand({PR_PLAY, config.lastStation()}); }
+    // Smart Start only records the intent here; playback is kicked off from loop() once the network is up.
+    if (config.isSmartStartEnabled()) { config.pendingSmartStart = true; }
     clock_tts_setup();
     startClockTtsTask();
     Audio::audio_info_callback = my_audio_info; // "audio_change" audiohandlers.h ban kezelve.
@@ -300,6 +301,7 @@ void loop() {
     if (serviceMaintenanceMode()) return;
 
     timekeeper.loop1();
+    network.loop();
     btPopupLoop();
     if (network.status == CONNECTED || network.status == SDREADY) {
         player.loop();
@@ -311,4 +313,16 @@ void loop() {
 #ifdef NETSERVER_LOOP1
     netserver.loop();
 #endif
+    if (config.pendingSmartStart) {
+        if (network.status == CONNECTED || config.getMode() == PM_SDCARD) {
+            static unsigned long netReadyMillis = 0;
+            if (netReadyMillis == 0) { netReadyMillis = millis(); }
+            // Let the network/amplifier settle before the first stream request.
+            if (millis() - netReadyMillis > 500) {
+                Serial.println("[SMART_START] Network ready, start playback...");
+                player.sendCommand({PR_PLAY, config.lastStation()});
+                config.pendingSmartStart = false;
+            }
+        }
+    }
 }

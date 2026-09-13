@@ -112,8 +112,8 @@ void u8fix(char* src) { // Ha az utolsó tőbbájtos karakter (ékezetes) utols�
 bool Config::_isFSempty() {
     // Base names without .gz — accepts both compressed and plain uploads
     const char*   reqiredFiles[] = {"dragpl.js", "ir.css",    "irrecord.html", "ir.js",     "logo.svg",          "options.html", "player.html",
-                                    "script.js", "style.css", "updform.html",  "theme.css", "theme-editor.html", "volcurve.html"};
-    const uint8_t reqiredFilesSize = 13;
+                                    "script.js", "style.css", "updform.html",  "theme.css", "theme-editor.html", "volcurve.html", "wifiset.html"};
+    const uint8_t reqiredFilesSize = 14;
     char          fullpath[32];
     if (LittleFS.exists("/www/settings.html")) { LittleFS.remove("/www/settings.html"); }
     if (LittleFS.exists("/www/update.html")) { LittleFS.remove("/www/update.html"); }
@@ -291,6 +291,7 @@ void Config::_setupVersion() {
             saveValue(&store.serialLittlefsEnabled, true, false);
             saveValue(&store.httpFsManagerEnabled, true, false);
             break;
+        case 5: saveValue(&store.wifiMinRssi, static_cast<int8_t>(-70)); break;
     }
     currentVersion++;
     saveValue(&store.version, currentVersion);
@@ -538,6 +539,7 @@ void Config::_initHW() {
 #if BRIGHTNESS_PIN != 255
     gpio_hold_dis((gpio_num_t)BRIGHTNESS_PIN); // ← add (MB)
     pinMode(BRIGHTNESS_PIN, OUTPUT);
+    analogWriteFrequency(BRIGHTNESS_PIN, BRIGHTNESS_PWM_FREQ);
     // Keep backlight off during display controller init to avoid boot flash.
     analogWrite(BRIGHTNESS_PIN, 0);
 #endif
@@ -1486,6 +1488,7 @@ void Config::setDefaults() {
 #endif
 
     store.rssiAsText = false;
+    store.wifiMinRssi = -70;
     eepromWrite(EEPROM_START, store);
 }
 
@@ -1866,19 +1869,35 @@ bool Config::parseWsCommand(const char* line, char* cmd, char* val, uint8_t cSiz
 }
 
 bool Config::parseSsid(const char* line, char* ssid, char* pass) {
-    char* tmpe;
     if (!line || !ssid || !pass) { return false; }
-    tmpe = strstr(line, "\t");
-    if (tmpe == NULL) { return false; }
-    uint16_t pos = tmpe - line;
-    if (pos > 29 || strlen(line) > 71) { return false; }
+
     memset(ssid, 0, 30);
-    size_t ssidCopyLen = (static_cast<size_t>(pos) < static_cast<size_t>(29)) ? static_cast<size_t>(pos) : static_cast<size_t>(29);
-    memcpy(ssid, line, ssidCopyLen);
-    ssid[ssidCopyLen] = '\0';
     memset(pass, 0, 40);
-    strlcpy(pass, line + pos + 1, 40);
-    return true;
+
+    const char* tmpe = strstr(line, "\t");
+    if (tmpe != NULL) {
+        uint16_t pos         = tmpe - line;
+        size_t   ssidCopyLen = (static_cast<size_t>(pos) < static_cast<size_t>(29)) ? static_cast<size_t>(pos) : static_cast<size_t>(29);
+        memcpy(ssid, line, ssidCopyLen);
+        ssid[ssidCopyLen] = '\0';
+        strlcpy(pass, tmpe + 1, 40);
+    } else {
+        // Open network: the line holds only the SSID.
+        strlcpy(ssid, line, 30);
+        pass[0] = '\0';
+    }
+
+    size_t plen = strlen(pass);
+    while (plen > 0 && (pass[plen - 1] == '\r' || pass[plen - 1] == '\n' || pass[plen - 1] == ' ' || pass[plen - 1] == '\t')) { pass[--plen] = '\0'; }
+
+    size_t slen = strlen(ssid);
+    while (slen > 0 && (ssid[slen - 1] == '\r' || ssid[slen - 1] == '\n' || ssid[slen - 1] == ' ' || ssid[slen - 1] == '\t')) { ssid[--slen] = '\0'; }
+
+    char* start = ssid;
+    while (*start == ' ' || *start == '\t') { start++; }
+    if (start != ssid) { memmove(ssid, start, strlen(start) + 1); }
+
+    return strlen(ssid) > 0;
 }
 
 bool Config::saveWifiFromNextion(const char* post) {
@@ -1888,8 +1907,11 @@ bool Config::saveWifiFromNextion(const char* post) {
         Serial.printf("[WIFI] saveWifiFromNextion: cannot open %s for write\n", SSIDS_PATH);
         return false;
     } else {
-        file.print(post);
+        file.println(post);
+        file.flush();
         file.close();
+        saveValue(&store.lastSSID, (uint8_t)1);
+        delay(500);
         ESP.restart();
         return true;
     }
@@ -1913,12 +1935,15 @@ void Config::setTimeConf() {
 }
 
 bool Config::initNetwork() {
+    ssidsCount = 0;
     File file = LittleFS.open(SSIDS_PATH, "r");
     if (!file || file.isDirectory()) { return false; }
     char    ssidval[30], passval[40];
     uint8_t c = 0;
-    while (file.available()) {
-        if (parseSsid(file.readStringUntil('\n').c_str(), ssidval, passval)) {
+    while (file.available() && c < 5) {
+        String line = file.readStringUntil('\n');
+        while (line.length() > 0 && (line[line.length() - 1] == '\r' || line[line.length() - 1] == '\n')) { line.remove(line.length() - 1); }
+        if (parseSsid(line.c_str(), ssidval, passval)) {
             strlcpy(ssids[c].ssid, ssidval, 30);
             strlcpy(ssids[c].password, passval, 40);
             ssidsCount++;
@@ -1926,7 +1951,7 @@ bool Config::initNetwork() {
         }
     }
     file.close();
-    return true;
+    return ssidsCount > 0;
 }
 
 void Config::setBrightness(bool dosave) {

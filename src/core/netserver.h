@@ -66,7 +66,7 @@ input[type=text],input[type=password]{width:170px;background: #272727;color: #4b
 </div>
 </section>
 <p><a href="/emergency">emergency firmware uploader</a></p>
-<div id="copy">powered by <a target="_blank" href="https://github.com/VaraiTamas/VTomRadio.git">VTom Radio</a><span id="version"></span></div>
+<div id="copy">VTom Radio mod. Andrzej Jaroszuk<span id="version"></span></div>
 </body>
 <script>
 const connectedMode = (typeof isStaConnected !== 'undefined') ? !!isStaConnected : (playMode=='player');

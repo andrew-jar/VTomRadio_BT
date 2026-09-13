@@ -609,6 +609,11 @@ bool CommandHandler::exec(const char* command, const char* value, uint8_t cid) {
         config.saveValue(&config.store.softapdelay, static_cast<uint8_t>(atoi(value)));
         return true;
     }
+    if (strEquals(command, "wifiminrssi")) {
+        const int minimumRssi = atoi(value);
+        config.saveValue(&config.store.wifiMinRssi, static_cast<int8_t>(constrain(minimumRssi, -95, -50)));
+        return true;
+    }
     if (strEquals(command, "mdnsname")) {
         config.saveValue(config.store.mdnsname, value, MDNS_LENGTH);
         return true;

@@ -529,9 +529,12 @@ function handleWiFiData(fileData) {
   var lines = fileData.split('\n');
   for(var i = 0;i < lines.length;i++){
     let line = lines[i].split('\t');
-    if(line.length==2){
+    if(line[0].trim() !== "" && getId("ssid"+i)){
       getId("ssid"+i).value=line[0].trim();
-      getId("pass"+i).attr('data-pass', line[1].trim());
+      const passEl=getId("pass"+i);
+      if(passEl){
+        passEl.value=line.length>=2 ? line[1].trim() : "";
+      }
     }
   }
 }
@@ -548,6 +551,81 @@ function getWiFi(path){
   };
   xhr.open("GET", path);
   xhr.send(null);
+}
+function initWiFiSettingsView(){
+  const results=getId('wifi-scan-results');
+  if(!results) return;
+  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  // /wifiscan answers immediately with a cached list and reports progress via a header.
+  const fetchWifiScan=async()=>{
+    for(let attempt=0;attempt<8;attempt++){
+      const response=await fetch('/wifiscan',{cache:'no-store'});
+      const running=response.headers.get('X-WiFi-Scan-Running')==='1';
+      const networks=await response.json();
+      if(Array.isArray(networks)&&networks.length>0) return networks;
+      if(!running) return Array.isArray(networks)?networks:[];
+      await wait(350);
+    }
+    return [];
+  };
+  document.querySelectorAll('.wifi-scan-button').forEach(button=>{
+    button.addEventListener('click',async()=>{
+      const ssidInput=getId(button.dataset.ssidTarget);
+      if(!ssidInput) return;
+      const credentialRow=button.closest('.wifi-credential');
+      if(credentialRow) {
+        credentialRow.after(results);
+        results.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+      button.classList.add('hl');
+      results.classList.remove('hidden');
+      results.innerHTML='<div class="wifi-scan-result">Searching...</div>';
+      try{
+        const networks=await fetchWifiScan();
+        results.innerHTML='';
+        if(!networks.length){
+          results.innerHTML='<div class="wifi-scan-result">No networks found</div>';
+          return;
+        }
+        networks.forEach(network=>{
+          const item=document.createElement('div');
+          item.className='wifi-scan-result';
+          const name=document.createElement('span');
+          name.textContent=network.ssid||'';
+          const signal=document.createElement('span');
+          signal.className='wifi-scan-rssi';
+          signal.textContent=`${network.rssi} dBm`;
+          item.append(name,signal);
+          item.addEventListener('click',()=>{
+            ssidInput.value=network.ssid||'';
+            results.classList.add('hidden');
+          });
+          results.appendChild(item);
+        });
+      }catch(error){
+        results.innerHTML='<div class="wifi-scan-result">Scan failed</div>';
+      }finally{
+        button.classList.remove('hl');
+      }
+    });
+  });
+  document.querySelectorAll('.wifi-eye-button').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const passInput=getId(button.dataset.passTarget);
+      if(!passInput) return;
+      if(passInput.type==='password'){
+        passInput.type='text';
+        button.classList.add('hl');
+        button.title='Hide password';
+        button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.49 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+      }else{
+        passInput.type='password';
+        button.classList.remove('hl');
+        button.title='Show password';
+        button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+      }
+    });
+  });
 }
 function applyTZ(){
   wsSend("tzh="+getId("tzh").value);
@@ -664,17 +742,17 @@ function applyDateFormat(){
 }
 function rebootSystem(info){
   getId("settingscontent").innerHTML=`<h2>${info}</h2>`;
-  getId("settingsdone").classList.add("hidden");
-  getId("navigation").classList.add("hidden");
+  getId("settingsdone")?.classList.add("hidden");
+  getId("navigation")?.classList.add("hidden");
   setTimeout(function(){ window.location.href=`http://${hostname}/`; }, 5000);
 }
 function submitWiFi(){
   var output="";
-  var items=document.getElementsByClassName("credential");
+  var items=document.getElementsByClassName("wifi-credential");
   for (var i = 0; i <= items.length - 1; i++) {
-    inputs=items[i].getElementsByTagName("input");
+    const inputs=items[i].getElementsByTagName("input");
     if(inputs[0].value == "") continue;
-    let ps=inputs[1].value==""?inputs[1].dataset.pass:inputs[1].value;
+    const ps=inputs[1].value;
     output+=inputs[0].value+"\t"+ps+"\n";
   }
   if(output!=""){ // Well, let's say, quack.
@@ -691,8 +769,8 @@ function submitWiFi(){
     xhr.onload = function(){
       if(xhr.status >= 200 && xhr.status < 300){
         getId("settingscontent").innerHTML="<h2>Settings saved. Rebooting...</h2>";
-        getId("settingsdone").classList.add("hidden");
-        getId("navigation").classList.add("hidden");
+        getId("settingsdone")?.classList.add("hidden");
+        getId("navigation")?.classList.add("hidden");
         setTimeout(function(){ window.location.href=`http://${hostname}/`; }, 10000);
       }else{
         getId("settingscontent").innerHTML="<h2>Save failed. Please try again.</h2>";
@@ -758,8 +836,8 @@ function playPreview(root) {
 function continueLoading(mode){
   if(loaded) return;
   if(typeof mode === 'undefined' || !mode) mode = 'ap';
-  if(mode=="player"){
-    const pathname = window.location.pathname;
+  const pathname = window.location.pathname;
+  if(mode=="player" || pathname=='/wifiset'){
     if(['/','/index.html'].includes(pathname)){
       document.title = `${yoTitle} - Player`;
       fetch(`player.html?${fwVersion}`).then(response => response.text()).then(player => { 
@@ -844,6 +922,24 @@ function continueLoading(mode){
         }
       });
     }
+    if(pathname=='/wifiset'){
+      document.title = `${yoTitle} - Wi-Fi Settings`;
+      fetch(`wifiset.html?${fwVersion}`).then(response => response.text()).then(wifiset => {
+        getId('content').innerHTML = wifiset;
+        fetch('logo.svg').then(response => response.text()).then(svg => {
+          getId('logo').innerHTML = svg;
+          hideSpinner();
+        });
+        getId("version").innerText=` | v${fwVersion}`;
+        getWiFi(`http://${hostname}/data/wifi.csv`+"?"+new Date().getTime());
+        wsSend('getsystem=1');
+        initWiFiSettingsView();
+      }).catch(() => {
+        hideSpinner();
+        const content=getId('content');
+        if(content) content.innerHTML='<div style="padding:20px;text-align:center;">Wi-Fi settings page failed to load.</div>';
+      });
+    }
     if(pathname=='/update.html'){
       document.title = `${yoTitle} - Update`;
       fetch(`updform.html?${fwVersion}`).then(response => response.text()).then(updform => {
@@ -902,11 +998,11 @@ function continueLoading(mode){
         });
     }
   }else{ // AP mode
-    fetch(`options.html?${fwVersion}`).then(response => {
-      if (!response.ok) throw new Error('options load failed');
+    fetch(`wifiset.html?${fwVersion}`).then(response => {
+      if (!response.ok) throw new Error('Wi-Fi settings load failed');
       return response.text();
-    }).then(options => {
-      getId('content').innerHTML = options; 
+    }).then(wifiset => {
+      getId('content').innerHTML = wifiset;
       fetch('logo.svg').then(response => {
         if (!response.ok) return '';
         return response.text();
@@ -917,22 +1013,12 @@ function continueLoading(mode){
       });
       getId("version").innerText=` | v${fwVersion}`;
       getWiFi(`http://${hostname}/data/wifi.csv`+"?"+new Date().getTime());
-      // AP fallback: make Wi-Fi section visible even when websocket state sync is delayed.
-      const nav = getId('navigation');
-      if (nav) nav.classList.remove('hidden');
-      classEach('group_wifi', function(el){ el.classList.remove('hidden'); });
-
       wsSend('getsystem=1');
-      wsSend('getscreen=1');
-      wsSend('gettimezone=1');
-      wsSend('getweather=1');
-      wsSend('getcontrols=1');
-      wsSend('getactive=1');
-      updateClockFontMonoUi(false);
+      initWiFiSettingsView();
     }).catch(() => {
       hideSpinner();
       const c = getId('content');
-      if (c) c.innerHTML = '<div style="padding:20px;text-align:center;">AP settings page failed to load. Open <a href="/webboard">/webboard</a>.</div>';
+      if (c) c.innerHTML = '<div style="padding:20px;text-align:center;">Wi-Fi settings page failed to load. Open <a href="/webboard">/webboard</a>.</div>';
     });
   }
   document.body.addEventListener('click', (event) => {
@@ -980,6 +1066,8 @@ function continueLoading(mode){
           case "webboard": window.location.href=`http://${hostname}/webboard`; break;
           case "themeeditor": window.location.href=`http://${hostname}/theme-editor.html`; break;
           case "setupir": window.location.href=`http://${hostname}/ir.html`; break;
+          case "wifiset": window.location.href=`http://${hostname}/wifiset`; break;
+          case "wifisetback": window.location.href=`http://${hostname}/settings.html`; break;
           case "applyweather":
             let key=getId("wkey").value;
             if(key!=""){
@@ -1049,6 +1137,7 @@ function continueLoading(mode){
       command = target.parentElement.dataset.command;
     }
     if (command) {
+      if(command==='wifiminrssi') return;
       if(target && target.type==='range') sliderInput(target, command);  //<-- range
       else wsSend(`${command}=${target ? target.value : ''}`);   //<-- other
       event.preventDefault(); event.stopPropagation();
@@ -1067,6 +1156,12 @@ function continueLoading(mode){
   });
   document.body.addEventListener('change', (event) => {
     const target = event.target;
+    if(target && target.dataset && target.dataset.command==='wifiminrssi') {
+      const value=Number(target.value);
+      target.value=Number.isFinite(value) ? Math.min(-50, Math.max(-95, Math.round(value))) : -70;
+      wsSend(`wifiminrssi=${target.value}`);
+      return;
+    }
     if (!target || target.tagName !== 'SELECT') return;
     const command = target.dataset ? target.dataset.command : undefined;
     if (!command) return;
