@@ -291,6 +291,15 @@ void Player::loop() {
         setOutputPins(false);
         config.setTitle(LANG::const_PlConnect);
 
+        // Mirror prepareForPlaying(): a preset played by URL must leave the presets grid too.
+        config.station.bitrate = 0;
+        config.setBitrateFormat(BF_UNKNOWN);
+        display.putRequest(DBITRATE);
+        netserver.requestOnChange(BITRATE, 0);
+        display.putRequest(NEWSTATION);
+        display.putRequest(NEWMODE, PLAYER);
+        netserver.requestOnChange(STATION, 0);
+
         if (connecttohost(config.station.url)) {
           _status = PLAYING;
           config.setTitle("");
