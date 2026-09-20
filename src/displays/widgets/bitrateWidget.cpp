@@ -183,7 +183,7 @@ void BitrateWidget::_draw() {
         _spr->drawString(fmt, w / 2, (h * 3) / 4);
     } else {
         // Flat 2-line layout: codec + bitrate on line 1, sample format on line 2.
-        const uint16_t infoColor = lgfx::color565(143, 216, 184);
+        const uint16_t infoColor = config.theme.title2;
 
         _spr->setTextDatum(lgfx::top_left);
 
