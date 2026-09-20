@@ -3706,7 +3706,9 @@ void Audio::loop() {
                     m_lVar.count = 0;
                 }
                 break;
-            case AUDIO_PLAYLISTINIT: readPlayListData(); break;
+            case AUDIO_PLAYLISTINIT:
+                if (!readPlayListData()) stopSong();
+                break;
             case AUDIO_PLAYLISTDATA:
                 if (m_playlistFormat == FORMAT_M3U) httpPrint(parsePlaylist_M3U().c_get());
                 if (m_playlistFormat == FORMAT_PLS) httpPrint(parsePlaylist_PLS().c_get());
@@ -4024,6 +4026,7 @@ ps_ptr<char> Audio::parsePlaylist_PLS() {
         if (isPLS) {
             if (m_playlistContent[i].starts_with_icase("File")) {
                 pos = m_playlistContent[i].index_of("=");
+                if (pos < 4) continue; // no '=' found, or line too short - skip this line safely
                 seq_str = m_playlistContent[i].substr(4, pos - 4);
                 seqNr = m_playlistContent[i].substr(4, pos - 4).to_int32();
                 entryNr = sequenceNr_to_entryNr(seqNr);
@@ -4033,6 +4036,7 @@ ps_ptr<char> Audio::parsePlaylist_PLS() {
             }
             if (m_playlistContent[i].starts_with_icase("Title")) {
                 pos = m_playlistContent[i].index_of("=");
+                if (pos < 5) continue; // no '=' found, or line too short - skip this line safely
                 seq_str = m_playlistContent[i].substr(5, pos - 5);
                 seqNr = m_playlistContent[i].substr(5, pos - 5).to_int32();
                 entryNr = sequenceNr_to_entryNr(seqNr);
@@ -5303,7 +5307,6 @@ exit: // termination condition
     return false;
 
 lastToDo:
-    m_f_alt_user_agent = false;
     m_streamType = ST_WEBSTREAM;
     if (m_audioFileSize > 0) m_streamType = ST_WEBFILE; // content length found
     if (m_phreh.f_icy_data) m_streamType = ST_WEBSTREAM;
@@ -5317,6 +5320,13 @@ lastToDo:
         m_dataMode = AUDIO_PLAYLISTINIT; // playlist expected
         // AUDIO_LOG_INFO("now parse playlist");
     } else {
+        if (m_content_type.valid() && m_content_type.contains_with_icase("text/html") && !m_f_alt_user_agent) {
+            m_f_alt_user_agent = true; // some SHOUTcast servers answer with an HTML page unless the user agent is changed
+            AUDIO_LOG_WARN("HTML page received, retry with alternative user agent");
+            m_client->stop();
+            httpPrint(m_currentHost.c_get());
+            return true;
+        }
         if (m_content_type.valid()) {
             AUDIO_LOG_INFO("unknown content found at: {}, content type is: {}", m_currentHost.c_get(), m_content_type.c_get());
         } else {
@@ -5324,6 +5334,8 @@ lastToDo:
         }
         goto exit;
     }
+
+    m_f_alt_user_agent = false; // usable content received, next connection starts with the default user agent
 
     if (m_phreh.f_icy_data) {
         if (m_icy_items.icy_description.valid()) info(*this, evt_icydescription, "{}", m_icy_items.icy_description);
