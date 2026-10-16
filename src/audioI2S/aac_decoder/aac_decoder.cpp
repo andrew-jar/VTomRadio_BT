@@ -18,7 +18,8 @@
 AACDecoder::AACDecoder(Audio& audioRef) : Decoder(audioRef), audio(audioRef), m_neaacdec(std::make_unique<NeaacDecoder>()) {}
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-bool AACDecoder::init() {
+bool AACDecoder::init(size_t outBuffSize) {
+    (void)outBuffSize;
     m_hAac = m_neaacdec->NeAACDecOpen();
     m_conf = m_neaacdec->NeAACDecGetCurrentConfiguration(m_hAac);
     if (m_conf) { m_conf->outputFormat = FAAD_FMT_32BIT; }

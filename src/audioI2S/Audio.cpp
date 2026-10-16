@@ -5487,7 +5487,7 @@ bool Audio::initializeDecoder() {
 
     if (type) {
         m_decoder = createDecoder(type);
-        if (!m_decoder || !m_decoder->init()) {
+        if (!m_decoder || !m_decoder->init(m_outbuffSize)) {
             AUDIO_LOG_ERROR("The {Decoder could not be initialized", type);
             stopSong();
             return false;
@@ -5932,7 +5932,7 @@ uint32_t Audio::decodeError(int8_t res, uint8_t* data, int32_t bytesDecoded) {
             }
         }
         m_decoder->reset();
-        m_decoder->init();
+        m_decoder->init(m_outbuffSize);
         return 0;
     }
     if (m_codec == CODEC_MP3) {

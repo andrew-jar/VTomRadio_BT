@@ -27,7 +27,7 @@ class AACDecoder : public Decoder {
 
     AACDecoder(Audio& audioRef);
     ~AACDecoder() { reset(); }
-    bool                  init() override;
+    bool                  init(size_t outBuffSize) override;
     void                  clear() override;
     void                  reset() override;
     bool                  isValid() override;

@@ -20,7 +20,7 @@ constexpr uint32_t FLAC_MAX_VORBIS_COMMENT_ENTRY_LENGTH = 1024 * 1024;
 //          FLAC INI SECTION
 //----------------------------------------------------------------------------------------------------------------------
 
-bool FlacDecoder::init() {
+bool FlacDecoder::init(size_t outBuffSize) {
     if (!FLACFrameHeader.alloc_array(1, "FLACFrameHeader")) {
         FLAC_LOG_ERROR("not enough memory to allocate FLAC frame header");
         m_valid = false;
@@ -47,6 +47,7 @@ bool FlacDecoder::init() {
     clear();
     setDefaults();
     m_flacPageNr = 0;
+    m_outBuffSize = outBuffSize;
     m_valid = true;
     return true;
 }
@@ -872,9 +873,10 @@ int8_t FlacDecoder::decodeNative(uint8_t* inbuf, int32_t* bytesLeft, int32_t* ou
         // blocksize can be much greater than outbuff, so we can't stuff all in once
         // therefore we need often more than one loop (split outputblock into pieces)
         uint32_t blockSize;
-        if (m_numOfOutSamples - m_offset > FLAC_MAX_OUTBUFFSIZE) {
-            blockSize = FLAC_MAX_OUTBUFFSIZE;
-            m_flacValidSamples = FLAC_MAX_OUTBUFFSIZE;
+        const uint32_t maxBlockSize = static_cast<uint32_t>(m_outBuffSize / 2);
+        if (m_numOfOutSamples - m_offset > maxBlockSize) {
+            blockSize = maxBlockSize;
+            m_flacValidSamples = maxBlockSize;
         } else {
             blockSize = m_numOfOutSamples - m_offset;
             m_flacValidSamples = blockSize;

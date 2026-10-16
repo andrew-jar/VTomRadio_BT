@@ -24,7 +24,7 @@ class OpusDecoder : public Decoder {
     OpusDecoder(Audio& audioRef)
         : Decoder(audioRef), rangedec(std::make_unique<RangeDecoder>()), silkdec(std::make_unique<SilkDecoder>(*rangedec)), celtdec(std::make_unique<CeltDecoder>(*rangedec)), audio(audioRef) {}
     ~OpusDecoder() { reset(); }
-    bool                  init() override;
+    bool                  init(size_t outBuffSize) override;
     void                  clear() override;
     void                  reset() override;
     bool                  isValid() override;

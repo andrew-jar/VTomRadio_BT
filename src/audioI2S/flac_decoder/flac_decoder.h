@@ -33,7 +33,7 @@ class FlacDecoder : public Decoder {
   public:
     FlacDecoder(Audio& audioRef) : Decoder(audioRef), audio(audioRef) {}
     ~FlacDecoder() { reset(); }
-    bool                  init() override;
+    bool                  init(size_t outBuffSize) override;
     void                  clear() override;
     void                  reset() override;
     bool                  isValid() override;
@@ -69,7 +69,6 @@ class FlacDecoder : public Decoder {
     Audio& audio;
 #define FLAC_MAX_CHANNELS    2
 #define FLAC_MAX_BLOCKSIZE   24576 // 24 * 1024
-#define FLAC_MAX_OUTBUFFSIZE 4096 * 2
 
     enum : uint8_t { FLACDECODER_INIT, FLACDECODER_READ_IN, FLACDECODER_WRITE_OUT };
     enum : uint8_t { DECODE_FRAME, DECODE_SUBFRAMES, OUT_SAMPLES };
@@ -200,6 +199,7 @@ class FlacDecoder : public Decoder {
     uint16_t        m_flacValidSamples = 0;
     uint16_t        m_rIndex = 0;
     uint16_t        m_offset = 0;
+    size_t          m_outBuffSize = 0;
     uint8_t         m_flacStatus = 0;
     uint8_t*        m_flacInptr;
     float           m_flacCompressionRatio = 0;

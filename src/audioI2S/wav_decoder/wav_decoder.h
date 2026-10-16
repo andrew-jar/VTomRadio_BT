@@ -6,7 +6,7 @@ class WavDecoder : public Decoder {
   public:
     WavDecoder(Audio& audioRef) : Decoder(audioRef), audio(audioRef) {}
     ~WavDecoder() { reset(); }
-    bool                  init() override;
+    bool                  init(size_t outBuffSize) override;
     void                  clear() override;
     void                  reset() override;
     bool                  isValid() override;

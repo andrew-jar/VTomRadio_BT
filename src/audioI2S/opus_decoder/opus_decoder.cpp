@@ -12,7 +12,8 @@
 #include "Arduino.h"
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-bool OpusDecoder::init() {
+bool OpusDecoder::init(size_t outBuffSize) {
+    (void)outBuffSize;
 
     if (!rangedec) {
         OPUS_LOG_ERROR("RangeDecoder is null");

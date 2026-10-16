@@ -10,7 +10,7 @@ class MP3Decoder : public Decoder {
   public:
     MP3Decoder(Audio& audioRef) : Decoder(audioRef), audio(audioRef) {}
     ~MP3Decoder() { reset(); }
-    bool                  init() override;
+    bool                  init(size_t outBuffSize) override;
     void                  clear() override;
     void                  reset() override;
     bool                  isValid() override;

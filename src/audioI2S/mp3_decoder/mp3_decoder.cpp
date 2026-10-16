@@ -9,7 +9,8 @@
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-bool MP3Decoder::init() {
+bool MP3Decoder::init(size_t outBuffSize) {
+    (void)outBuffSize;
     m_MP3DecInfo.alloc("m_MP3DecInfo");
     m_FrameHeader.alloc("m_FrameHeader");
     m_SideInfo.alloc("m_SideInfo");

@@ -24,7 +24,8 @@
 #include "lookup.h"
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-bool VorbisDecoder::init() {
+bool VorbisDecoder::init(size_t outBuffSize) {
+    (void)outBuffSize;
     setDefaults();
     m_ogg_items.lastSegmentTable.alloc(4096, "m_lastSegmentTable");
     if (m_ogg_items.lastSegmentTable.valid()) m_f_isValid = true;

@@ -31,7 +31,7 @@ class VorbisDecoder : public Decoder {
   public:
     VorbisDecoder(Audio& audioRef) : Decoder(audioRef), audio(audioRef) {}
     ~VorbisDecoder() { reset(); }
-    bool                  init() override;
+    bool                  init(size_t outBuffSize) override;
     void                  clear() override;
     void                  reset() override;
     bool                  isValid() override;
