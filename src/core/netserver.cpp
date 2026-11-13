@@ -1492,7 +1492,11 @@ void NetServer::chunkedHtmlPage(const String &contentType, AsyncWebServerRequest
   });
 #endif
   response = request->beginChunkedResponse(contentType, chunkedHtmlPageCallback);
-  response->addHeader("Cache-Control", "max-age=31536000");
+  if (strstr(path, ".csv") != nullptr) {
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  } else {
+    response->addHeader("Cache-Control", "max-age=31536000");
+  }
   request->send(response);
 }
 

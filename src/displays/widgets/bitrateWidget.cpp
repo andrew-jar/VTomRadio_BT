@@ -219,7 +219,7 @@ void BitrateWidget::_draw() {
             const unsigned long srFrac = static_cast<unsigned long>(khzX10 % 10);
             const bool hasSourceBitDepth = (_format == BF_FLAC || _format == BF_WAV) && _bitDepth > 0;
             if (hasSourceBitDepth) {
-                snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz • %ubit", srWhole, srFrac, static_cast<unsigned>(_bitDepth));
+                snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz - %ubit", srWhole, srFrac, static_cast<unsigned>(_bitDepth));
             } else {
                 snprintf(infoBuf, sizeof(infoBuf), "%lu.%lu KHz", srWhole, srFrac);
             }

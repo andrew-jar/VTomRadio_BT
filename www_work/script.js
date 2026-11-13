@@ -1052,7 +1052,7 @@ function continueLoading(mode){
           case "toggle": toggleTarget(target, target.dataset.target); break;
           case "settings": window.location.href=`http://${hostname}/settings.html`; break;
           case "plimport": break;
-          case "plexport": window.open(`http://${hostname}/data/playlist.csv`); break;
+          case "plexport": window.open(`http://${hostname}/data/playlist.csv`+"?"+new Date().getTime()); break;
           case "pladd": plAdd(); break;
           case "pldel": plRemove(); break;
           case "plselect": {
@@ -1085,7 +1085,7 @@ function continueLoading(mode){
           case "presetsexport": window.open(`http://${hostname}/presets.csv`+"?"+new Date().getTime()); break;
           case "presetsimport": getId("presets-import-file").click(); break;
           case "reboot": wsSend("reboot=1"); rebootSystem('Rebooting...'); break;
-          case "format": wsSend("format=1"); rebootSystem('Format SPIFFS. Rebooting...'); break;
+          case "format": wsSend("format=1"); rebootSystem('Format LittleFS. Rebooting...'); break;
           case "reset":  wsSend("reset=1");  rebootSystem('Reset settings. Rebooting...'); break;
           case "snuffle": toggleSnuffle(); break;
           case "rebootmdns": wsSend(`mdnsname=${getId('mdns').value}`); wsSend("rebootmdns=1"); break;
@@ -1280,7 +1280,7 @@ function doUpdate(el) {
     getId('updateprogress').hidden=false;
     getId('update_cancel_button').hidden=true;
     var formData = new FormData();
-    formData.append("updatetarget", getId('uploadtype1').checked?"firmware":"spiffs");
+    formData.append("updatetarget", getId('uploadtype1').checked?"firmware":"littlefs");
     formData.append("update", binfile);
     var xhr = new XMLHttpRequest();
     uploadWithError = false;
