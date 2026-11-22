@@ -37,6 +37,15 @@ Supported languages: HU, PL, NL, GR, DE, CZ, SK (UA Local/namedays/namedays_UA.h
 /*----- SCREEN ROTATION -----*/
 // #define DEFAULT_SCREEN_ROTATION 3  /* 0-3 */
 
+/*----- UI: update/sleep screens -----*/
+/* Ekran aktualizacji OTA z paskiem i procentami (0=off, 1=on). */
+/* OTA update screen with progress bar and percent (0=off, 1=on). */
+#define UPD_SCREEN 1
+
+/* Animacja CRT przy usypianiu/wyłączaniu (0=off, 1=on). */
+/* CRT-like power-off animation on sleep/shutdown (0=off, 1=on). */
+#define SLEEP_CRT_ANIM 1
+
 /*----- LovyanGFX SPI bus speed -----*/
 /* Instabilny obraz? Możesz obniżyć częstotliwości przy słabym okablowaniu. */
 /* Unstable display? Lower frequencies can help with poor wiring quality. */

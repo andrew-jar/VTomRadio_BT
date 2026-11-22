@@ -21,6 +21,14 @@
 #include "../plugins/bt_popup/bt_popup.h"
 // #define LGFX_USE_PNG
 
+#ifndef UPD_SCREEN
+#    define UPD_SCREEN 1
+#endif
+
+#ifndef SLEEP_CRT_ANIM
+#    define SLEEP_CRT_ANIM 1
+#endif
+
 Display display;
 #ifdef USE_NEXTION
 #    include "../displays/nextion.h"
@@ -550,11 +558,21 @@ void Display::_swichMode(displayMode_e newmode) {
         _nums->setText(config.store.volume, numtxtFmt);
     }
     if (newmode == NUMBERS) { _showDialog(""); }
-    if (newmode == UPDATING) { _showDialog(LANG::const_DlgUpdate); }
+    if (newmode == UPDATING) {
+#    if UPD_SCREEN
+        _updScreen();
+#    else
+        _showDialog(LANG::const_DlgUpdate);
+#    endif
+    }
     if (newmode == SLEEPING) {
-        _showDialog("SLEEPING");
+        _showDialog("WYŁĄCZANIE");
         delay(2000);
+#    if SLEEP_CRT_ANIM
+        _crtOff();
+#    else
         dsp.clearDsp();
+#    endif
         config.doSleepW();
     }
     if (newmode == SDCHANGE) { _showDialog(LANG::const_waitForSD); }
@@ -610,6 +628,8 @@ void Display::putRequest(displayRequestType_e type, int payload) {
         case AUDIOINFO:
         case DSPRSSI:
         case DRAWVOL:
+        case UPDPROGRESS:
+        case UPDSTATUS:
             purgeQueuedRequestType(type);
             break;
         default:
@@ -925,6 +945,12 @@ void Display::loop() {
                     if (_ipbox) { _ipbox->setText(config.ipToStr(WiFi.localIP()), iptxtFmt); }
 #    endif
                     break;
+                case UPDPROGRESS:
+                    _updProgress(request.payload);
+                    break;
+                case UPDSTATUS:
+                    _updStatus(request.payload);
+                    break;
 
                 default:
                     break;
@@ -937,6 +963,122 @@ void Display::loop() {
 
     dsp.loop();
 } // loop vége
+
+void Display::_crtOff() {
+#    if SLEEP_CRT_ANIM
+    const int16_t  w = dsp.width();
+    const int16_t  h = dsp.height();
+    const int16_t  cx = w / 2;
+    const int16_t  cy = h / 2;
+    const uint16_t black = 0x0000;
+    const uint16_t white = 0xFFFF;
+
+    const uint8_t stepsClose = 12;
+    int16_t       top = 0;
+    for (uint8_t s = 1; s <= stepsClose; s++) {
+        const float   t = (float)s / (float)stepsClose;
+        const int16_t bandH = h - (int16_t)((h - 24) * t * t);
+        const int16_t nextTop = cy - bandH / 2;
+        dsp.fillRect(0, top, w, nextTop - top, black);
+        dsp.fillRect(0, h - nextTop, w, nextTop - top, black);
+        top = nextTop;
+        delay(15);
+    }
+
+    const int16_t bands[] = {24, 14, 8, 4};
+    for (uint8_t i = 0; i < sizeof(bands) / sizeof(bands[0]); i++) {
+        dsp.fillRect(0, top, w, h - 2 * top, black);
+        top = cy - bands[i] / 2;
+        dsp.fillRect(0, top, w, bands[i], white);
+        delay(25);
+    }
+
+    const int16_t lineY = top;
+    const int16_t lineH = h - 2 * top;
+    const uint8_t stepsShrink = 14;
+    int16_t       left = 0;
+    for (uint8_t s = 1; s <= stepsShrink; s++) {
+        const float   t = (float)s / (float)stepsShrink;
+        const int16_t nextLeft = (int16_t)((cx - 3) * t * t);
+        dsp.fillRect(left, lineY, nextLeft - left, lineH, black);
+        dsp.fillRect(w - nextLeft, lineY, nextLeft - left, lineH, black);
+        left = nextLeft;
+        delay(12);
+    }
+    dsp.fillRect(0, lineY, w, lineH, black);
+
+    const uint8_t stepsFade = 10;
+    for (uint8_t s = 0; s < stepsFade; s++) {
+        const uint8_t v = 255 - s * 255 / stepsFade;
+        const int16_t r = 5 - s / 3;
+        dsp.fillCircle(cx, cy, 6, black);
+        dsp.fillCircle(cx, cy, r, dsp.color565(v, v, v));
+        delay(40);
+    }
+    dsp.fillScreen(black);
+#    endif
+}
+
+void Display::_updScreen() {
+#    if UPD_SCREEN
+    const uint16_t bg = config.theme.background;
+    if (_updPage == nullptr) {
+        _updPage = new Page();
+        _updTitle = new textBoxWidget(updTitleConf, 48, false, config.theme.meta, config.theme.metabg, config.theme.metabg);
+        _updWhat = new textBoxWidget(updWhatConf, 48, false, config.theme.title1, bg, bg);
+        _updBar = new SliderWidget(updBarConf, config.theme.digit, bg, 100, config.theme.ip_border);
+        _updPct = new textBoxWidget(updPctConf, 16, false, config.theme.clock, bg, bg);
+        _updWarn = new textBoxWidget(updWarnConf, 64, false, config.theme.title1, bg, bg);
+
+        if (_metabackground) { _updPage->addWidget(_metabackground); }
+        _updPage->addWidget(_updTitle);
+        _updPage->addWidget(_updWhat);
+        _updPage->addWidget(_updBar);
+        _updPage->addWidget(_updPct);
+        _updPage->addWidget(_updWarn);
+        _pager->addPage(_updPage);
+    }
+
+    _updTitle->setText("AKTUALIZACJA");
+    _updWhat->setText(_updTarget == UPD_FILESYSTEM ? "System plików" : "Oprogramowanie");
+    _updPct->setText("0%");
+    _updWarn->setText("Nie wyłączaj zasilania!");
+    _updBar->setColors(config.theme.digit, bg);
+    _updBar->setValue(0);
+    _pager->setPage(_updPage);
+#    endif
+}
+
+void Display::_updProgress(int pct) {
+#    if UPD_SCREEN
+    if (_mode != UPDATING || _updPage == nullptr) { return; }
+    pct = constrain(pct, 0, 100);
+    _updBar->setValue((uint32_t)pct);
+    _updPct->setText(pct, "%d%%");
+#    else
+    (void)pct;
+#    endif
+}
+
+void Display::_updStatus(int status) {
+#    if UPD_SCREEN
+    if (status == UPD_FIRMWARE || status == UPD_FILESYSTEM) {
+        _updTarget = status;
+        if (_mode == UPDATING && _updPage != nullptr) { _updScreen(); }
+        return;
+    }
+    if (_mode != UPDATING || _updPage == nullptr) { return; }
+    if (status == UPD_DONE) {
+        _updProgress(100);
+        _updWhat->setText("Gotowe, restart...");
+    } else {
+        _updWhat->setText("Błąd aktualizacji!");
+        _updWarn->setText("Spróbuj ponownie");
+    }
+#    else
+    (void)status;
+#    endif
+}
 
 void Display::_setRSSI(int rssi) {
     if (config.store.rssiAsText && _rssibox) {
@@ -1062,6 +1204,7 @@ void Display::setContrast() {}
 bool Display::deepsleep() {
 #    if defined(DSP_OLED) || BRIGHTNESS_PIN != 255
     dsp.sleep();
+    _panelAsleep = true;
     return true;
 #    endif
     return false;
@@ -1069,6 +1212,8 @@ bool Display::deepsleep() {
 
 void Display::wakeup() {
 #    if defined(DSP_OLED) || BRIGHTNESS_PIN != 255
+    if (!_panelAsleep) { return; }
+    _panelAsleep = false;
     dsp.wake();
 #    endif
 }

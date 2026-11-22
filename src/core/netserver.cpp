@@ -792,6 +792,22 @@ char *updateError() {
   return netserver.nsBuf;
 }
 
+static int g_updateProgressPct = -1;
+
+static void pushUpdateProgress(AsyncWebServerRequest *request, size_t index, size_t len) {
+  if (request == nullptr) { return; }
+  size_t total = request->contentLength();
+  if (total == 0) { return; }
+  size_t written = index + len;
+  int    pct = (int)((written * 100UL) / total);
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+  if (pct != g_updateProgressPct) {
+    g_updateProgressPct = pct;
+    display.putRequest(UPDPROGRESS, pct);
+  }
+}
+
 bool NetServer::begin(bool quiet) {
   if (network.status == SDREADY) {
     return true;
@@ -2140,21 +2156,29 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
       Serial.printf("Update Start: %s\n", filename.c_str());
       player.sendCommand({PR_STOP, 0});
       display.putRequest(NEWMODE, UPDATING);
+      display.putRequest(UPDSTATUS, target == U_LITTLEFS ? UPD_FILESYSTEM : UPD_FIRMWARE);
+      g_updateProgressPct = -1;
       if (!Update.begin(UPDATE_SIZE_UNKNOWN, target)) {
+        display.putRequest(UPDSTATUS, UPD_ERROR);
         Update.printError(Serial);
         request->send(200, "text/html", updateError());
       }
     }
     if (!Update.hasError()) {
       if (Update.write(data, len) != len) {
+        display.putRequest(UPDSTATUS, UPD_ERROR);
         Update.printError(Serial);
         request->send(200, "text/html", updateError());
+      } else {
+        pushUpdateProgress(request, index, len);
       }
     }
     if (final) {
       if (Update.end(true)) {
+        display.putRequest(UPDSTATUS, UPD_DONE);
         Serial.printf("Update Success: %uB\n", index + len);
       } else {
+        display.putRequest(UPDSTATUS, UPD_ERROR);
         Update.printError(Serial);
         request->send(200, "text/html", updateError());
       }

@@ -77,7 +77,15 @@ class Display {
     ImageWidget*    _bticon = nullptr;
     textBoxWidget*  _btbox = nullptr;
     NamedayWidget*  _namedaywidget;
+    Page*           _updPage = nullptr;
+    textBoxWidget*  _updTitle = nullptr;
+    textBoxWidget*  _updWhat = nullptr;
+    SliderWidget*   _updBar = nullptr;
+    textBoxWidget*  _updPct = nullptr;
+    textBoxWidget*  _updWarn = nullptr;
+    int             _updTarget = UPD_FIRMWARE;
     bool            _btConnected = false;
+    bool            _panelAsleep = false;
 
     bool    _locked = false;
     uint8_t _bootStep;
@@ -99,6 +107,10 @@ class Display {
     void    _refreshThemeColors();
     void    _applyRssiMode();
     void    _refreshStatusWidgets();
+    void    _crtOff();
+    void    _updScreen();
+    void    _updProgress(int pct);
+    void    _updStatus(int status);
 };
 
 #else

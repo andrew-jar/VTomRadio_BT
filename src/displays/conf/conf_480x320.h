@@ -39,6 +39,11 @@ const textBoxConfig bootstrConf   PROGMEM = {60, 255, 360, 35, 20, WA_CENTER, 1,
 const textBoxConfig ipBoxConf     PROGMEM = {TFT_FRAMEWDT, 288, 150, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
 const textBoxConfig chBoxConf     PROGMEM = {290, 288, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
 const textBoxConfig btBoxConf     PROGMEM = {390, 261, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
+const textBoxConfig updTitleConf  PROGMEM = {80, 72, 320, 34, 22, WA_CENTER, 1, 4, true, 0, 0};
+const textBoxConfig updWhatConf   PROGMEM = {80, 118, 320, 34, 18, WA_CENTER, 1, 4, true, 0, 0};
+const FillConfig    updBarConf    PROGMEM = {{80, 170, 0, WA_LEFT}, 320, 16, true};
+const textBoxConfig updPctConf    PROGMEM = {190, 198, 100, 26, 20, WA_CENTER, 0, 0, false, 0, 0};
+const textBoxConfig updWarnConf   PROGMEM = {40, 248, 400, 30, 16, WA_CENTER, 0, 0, false, 0, 0};
 const ImageWidgetConfig btIconConf PROGMEM = { 390, 288, 30, 25 };
 const textBoxConfig rssiBoxConf   PROGMEM = {390, 288, 80, 25, 18, WA_CENTER, 1, 4, true, 0, 0};
 
