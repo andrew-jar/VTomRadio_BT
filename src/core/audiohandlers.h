@@ -162,7 +162,7 @@ void my_audio_info(Audio::msg_t m) {
 
       // Bias Radio / Icecast FLAC bez ICY StreamTitle: jeśli tytuł nadal jest
       // w stanie "connecting" albo pusty, pokaż nazwę stacji zamiast placeholdera.
-      if ((newFmt == BF_FLAC || newFmt == BF_WAV) && config.station.title) {
+      if ((newFmt == BF_FLAC || newFmt == BF_WAV) && strlen(config.station.title) > 0) {
         const char *curTitle = config.station.title;
         if (strlen(curTitle) == 0 || strcmp_P(curTitle, LANG::const_PlConnect) == 0) {
           const char *fallbackName = playlistStationDisplayName();
@@ -176,7 +176,7 @@ void my_audio_info(Audio::msg_t m) {
       // SD mód: "stream ready" → seek a mentett pozícióra
       if (strstr(msg, "stream ready") != nullptr) {
         seekSD();
-        if (config.station.title && (strlen(config.station.title) == 0 || strcmp_P(config.station.title, LANG::const_PlConnect) == 0)) {
+        if (strlen(config.station.title) == 0 || strcmp_P(config.station.title, LANG::const_PlConnect) == 0) {
           const char *fallbackName = playlistStationDisplayName();
           if (fallbackName && strlen(fallbackName) > 0) {
             audio_setTitleSafe(fallbackName);
