@@ -51,8 +51,8 @@ Wymagane narzedzia
 
 - VS Code: stabilna wersja (zalecana aktualna)
 - Rozszerzenie VS Code: `PlatformIO IDE` (publisher: `platformio`)
-- PlatformIO Core: `6.1.19`
-- Python (dla PlatformIO): 3.9+ (zalecane 3.10/3.13.7)
+- PlatformIO Core: `6.2.0`
+- Python (dla PlatformIO): 3.13.7
 
 ---------------------------------------------------------------------
 ## Bluetooth
