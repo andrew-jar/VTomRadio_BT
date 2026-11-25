@@ -707,7 +707,6 @@ int32_t FlacDecoder::parseMetaDataBlockHeader(uint8_t* inbuf, int16_t nBytes) {
                     m_flacStreamTitle.assign(vb[0].c_get());
                     m_f_flacNewStreamtitle = true;
                 }
-                if (!m_flacBlockPicLen && m_flacSegmTableVec.size() == 1) m_f_lastMetaDataBlock = true; // exeption:: goto audiopage after commemt if lastMetaDataFlag is not set
                 if (ret == FLAC_PARSE_OGG_DONE) return ret;
                 break;
             }

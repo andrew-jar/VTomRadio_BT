@@ -160,6 +160,10 @@ int32_t OpusDecoder::decode(uint8_t* inbuf, int32_t* bytesLeft, int32_t* outbuf)
         m_opusSegmentTableSize--;
         segmLen = m_opusSegmentTable[m_opusSegmentTableRdPtr];
     }
+    else if (m_opusPageNr == 3) {
+        ret = OPUS_PARSE_OGG_DONE;
+        goto exit;
+    }
 
     if (m_opusPageNr == 0) { // OpusHead
         ret = opusDecodePage0(inbuf, bytesLeft, segmLen);
@@ -1396,6 +1400,16 @@ int32_t OpusDecoder::parseOGG(uint8_t* inbuf, int32_t* bytesLeft) { // reference
     m_f_lastPage = headerType & 0x04;      // set: this is the last page of a logical bitstream (eos)
 
     if (m_f_firstPage) { m_opusPageNr = 0; }
+
+    if (m_opusPageNr == 3 && m_f_continuedPage && m_opusSegmentTableSize > 0) {
+        const int32_t skippedSegmentLen = m_opusSegmentTable[0];
+        for (int32_t i = 1; i < m_opusSegmentTableSize; i++) {
+            m_opusSegmentTable[i - 1] = m_opusSegmentTable[i];
+        }
+        m_opusSegmentTableSize--;
+        m_opusSegmentLength -= skippedSegmentLen;
+        OPUS_LOG_DEBUG("Skipping continued opus packet segment len {}", skippedSegmentLen);
+    }
 
     OPUS_LOG_DEBUG("firstPage {}, continuedPage {}, lastPage {}", m_f_firstPage, m_f_continuedPage, m_f_lastPage);
 
